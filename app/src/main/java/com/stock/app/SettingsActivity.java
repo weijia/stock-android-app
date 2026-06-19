@@ -13,6 +13,9 @@ import android.widget.Toast;
 
 import com.stock.app.service.StockService;
 import com.stock.app.util.ConfigManager;
+import com.stock.app.util.ExternalStorageManager;
+
+import org.json.JSONObject;
 
 /**
  * 设置界面 Activity
@@ -24,10 +27,13 @@ public class SettingsActivity extends Activity {
     private EditText etServerPort;
     private Button btnSave;
     private Button btnTestConnection;
+    private Button btnSelectStorage;
     private TextView tvTestResult;
+    private TextView tvStorageLocation;
 
     // 服务组件
     private ConfigManager configManager;
+    private ExternalStorageManager externalStorageManager;
     private StockService stockService;
 
     public static void start(Activity activity) {
@@ -42,6 +48,7 @@ public class SettingsActivity extends Activity {
 
         // 初始化配置和服务
         configManager = new ConfigManager(this);
+        externalStorageManager = new ExternalStorageManager(this);
         stockService = new StockService(configManager);
 
         // 初始化 UI
@@ -60,6 +67,13 @@ public class SettingsActivity extends Activity {
         btnSave = findViewById(R.id.btn_save);
         btnTestConnection = findViewById(R.id.btn_test_connection);
         tvTestResult = findViewById(R.id.tv_test_result);
+        
+        // 外部存储相关 UI（需要添加到布局）
+        btnSelectStorage = findViewById(R.id.btn_select_storage);
+        tvStorageLocation = findViewById(R.id.tv_storage_location);
+        
+        // 显示当前存储位置
+        updateStorageLocation();
     }
 
     private void loadConfig() {
@@ -84,6 +98,16 @@ public class SettingsActivity extends Activity {
                 testConnection();
             }
         });
+        
+        // 选择外部存储目录按钮
+        if (btnSelectStorage != null) {
+            btnSelectStorage.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    selectExternalStorage();
+                }
+            });
+        }
     }
 
     private void saveConfig() {
@@ -106,13 +130,32 @@ public class SettingsActivity extends Activity {
             }
         }
 
-        // 保存配置
+        // 保存配置到 SharedPreferences
         configManager.saveServerConfig(ip, port);
+        
+        // 同时保存到外部存储
+        saveToExternalStorage(ip, port);
 
         Toast.makeText(this, "配置已保存", Toast.LENGTH_SHORT).show();
 
         // 返回主界面
         finish();
+    }
+    
+    /**
+     * 保存配置到外部存储
+     */
+    private void saveToExternalStorage(String ip, int port) {
+        try {
+            JSONObject config = new JSONObject();
+            config.put("server_ip", ip);
+            config.put("server_port", port);
+            config.put("last_code", configManager.getLastCode());
+            
+            externalStorageManager.saveConfig(config);
+        } catch (Exception e) {
+            Toast.makeText(this, "保存到外部存储失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void testConnection() {
@@ -159,6 +202,43 @@ public class SettingsActivity extends Activity {
                 tvTestResult.setTextColor(Color.parseColor("#dc3545"));
             }
         });
+    }
+    
+    /**
+     * 选择外部存储目录（SAF）
+     */
+    private void selectExternalStorage() {
+        if (externalStorageManager.isSafAvailable()) {
+            externalStorageManager.requestSafDirectory(this);
+        } else {
+            // Android 4.0-4.3 不支持 SAF，使用默认外部存储
+            Toast.makeText(this, "您的系统版本不支持 SAF，配置将保存到外部存储: " + 
+                externalStorageManager.getStorageLocation(), Toast.LENGTH_LONG).show();
+        }
+    }
+    
+    /**
+     * 更新存储位置显示
+     */
+    private void updateStorageLocation() {
+        if (tvStorageLocation != null) {
+            tvStorageLocation.setText("配置保存位置: " + externalStorageManager.getStorageLocation());
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        
+        // 处理 SAF 目录选择结果
+        if (externalStorageManager.handleSafResult(requestCode, resultCode, data)) {
+            Toast.makeText(this, "已选择外部存储目录，配置卸载后保留", Toast.LENGTH_SHORT).show();
+            updateStorageLocation();
+            
+            // 立即保存当前配置到新目录
+            saveToExternalStorage(etServerIp.getText().toString().trim(), 
+                Integer.parseInt(etServerPort.getText().toString().trim()));
+        }
     }
 
     @Override

@@ -84,4 +84,49 @@
         android:textSize="14sp"
         android:visibility="gone" />
 
+    <!-- 分隔线 -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="24dp"
+        android:background="@color/chartGrid" />
+
+    <!-- 外部存储配置区域 -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="外部存储配置"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="@color/textPrimary" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="配置保存到外部存储，卸载应用后保留"
+        android:textColor="@color/textSecondary"
+        android:textSize="12sp" />
+
+    <!-- 存储位置显示 -->
+    <TextView
+        android:id="@+id/tv_storage_location"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="配置保存位置: SharedPreferences"
+        android:textColor="@color/textSecondary"
+        android:textSize="12sp" />
+
+    <!-- 选择外部存储目录按钮 -->
+    <Button
+        android:id="@+id/btn_select_storage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="选择外部存储目录"
+        android:background="@color/colorAccent"
+        android:textColor="@color/surface" />
+
 </LinearLayout>

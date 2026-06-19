@@ -11,6 +11,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import android.app.Activity;
+import android.content.Intent;
 
 import com.stock.app.model.IntradayData;
 import com.stock.app.model.KLineData;
@@ -18,10 +19,13 @@ import com.stock.app.model.StockData;
 import com.stock.app.service.RefreshScheduler;
 import com.stock.app.service.StockService;
 import com.stock.app.util.ConfigManager;
+import com.stock.app.util.ExternalStorageManager;
 import com.stock.app.util.FormatUtil;
 import com.stock.app.view.IntradayChartView;
 import com.stock.app.view.PriceChartView;
 import com.stock.app.view.VolumeChartView;
+
+import org.json.JSONObject;
 
 import java.util.List;
 
@@ -57,6 +61,7 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
 
     // 服务组件
     private ConfigManager configManager;
+    private ExternalStorageManager externalStorageManager;
     private StockService stockService;
     private RefreshScheduler refreshScheduler;
 
@@ -67,6 +72,12 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // 初始化外部存储管理器
+        externalStorageManager = new ExternalStorageManager(this);
+        
+        // 从外部存储加载配置
+        loadConfigFromExternalStorage();
 
         // 初始化配置和服务
         configManager = new ConfigManager(this);
@@ -86,6 +97,49 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         String lastCode = configManager.getLastCode();
         if (!TextUtils.isEmpty(lastCode)) {
             etStockCode.setText(lastCode);
+        }
+    }
+    
+    /**
+     * 从外部存储加载配置
+     */
+    private void loadConfigFromExternalStorage() {
+        try {
+            JSONObject config = externalStorageManager.loadConfig();
+            if (config != null && config.length() > 0) {
+                // 恢复服务器配置
+                String serverIp = config.optString("server_ip", "localhost");
+                int serverPort = config.optInt("server_port", 8080);
+                String lastCode = config.optString("last_code", "");
+                
+                // 保存到 SharedPreferences（供其他组件使用）
+                configManager.setServerIp(serverIp);
+                configManager.setServerPort(serverPort);
+                if (!TextUtils.isEmpty(lastCode)) {
+                    configManager.setLastCode(lastCode);
+                }
+                
+                Toast.makeText(this, "配置已恢复: " + externalStorageManager.getStorageLocation(), 
+                    Toast.LENGTH_SHORT).show();
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, "加载配置失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+    
+    /**
+     * 保存配置到外部存储
+     */
+    private void saveConfigToExternalStorage() {
+        try {
+            JSONObject config = new JSONObject();
+            config.put("server_ip", configManager.getServerIp());
+            config.put("server_port", configManager.getServerPort());
+            config.put("last_code", configManager.getLastCode());
+            
+            externalStorageManager.saveConfig(config);
+        } catch (Exception e) {
+            Toast.makeText(this, "保存配置失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -300,8 +354,24 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        
+        // 保存配置到外部存储
+        saveConfigToExternalStorage();
+        
         // 停止刷新并释放资源
         refreshScheduler.stop();
         stockService.shutdown();
+    }
+    
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        
+        // 处理 SAF 目录选择结果
+        if (externalStorageManager.handleSafResult(requestCode, resultCode, data)) {
+            Toast.makeText(this, "已选择外部存储目录，配置将保存到该目录", Toast.LENGTH_SHORT).show();
+            // 立即保存当前配置
+            saveConfigToExternalStorage();
+        }
     }
 }
