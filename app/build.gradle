@@ -13,33 +13,10 @@ android {
         versionName "1.0.0"
     }
 
-    // 签名配置
-    signingConfigs {
-        release {
-            // 从环境变量读取签名配置
-            def keystorePath = System.getenv("KEYSTORE_PATH")
-            def keystorePassword = System.getenv("KEYSTORE_PASSWORD")
-            def keyAliasEnv = System.getenv("KEY_ALIAS")
-            def keyPassword = System.getenv("KEY_PASSWORD")
-
-            if (keystorePath != null && keystorePassword != null && file(keystorePath).exists()) {
-                storeFile file(keystorePath)
-                storePassword keystorePassword
-                keyAlias keyAliasEnv ?: "release"
-                keyPassword keyPassword ?: keystorePassword
-            }
-        }
-    }
-
     buildTypes {
         release {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            
-            // 如果有 release 签名配置则使用
-            if (signingConfigs.release.storeFile != null) {
-                signingConfig signingConfigs.release
-            }
         }
         debug {
             minifyEnabled false
@@ -52,6 +29,19 @@ android {
     }
 
     namespace 'com.stock.app'
+}
+
+// 签名配置 - 在 android 块之后定义
+if (System.getenv("KEYSTORE_PATH") != null && System.getenv("KEYSTORE_PASSWORD") != null) {
+    android.signingConfigs {
+        release {
+            storeFile file(System.getenv("KEYSTORE_PATH"))
+            storePassword System.getenv("KEYSTORE_PASSWORD")
+            keyAlias System.getenv("KEY_ALIAS") ?: "release"
+            keyPassword System.getenv("KEY_PASSWORD") ?: System.getenv("KEYSTORE_PASSWORD")
+        }
+    }
+    android.buildTypes.release.signingConfig android.signingConfigs.release
 }
 
 dependencies {
