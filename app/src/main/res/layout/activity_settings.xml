@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="@color/background">
+
+    <!-- 标题 -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/settings_title"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="@color/textPrimary" />
+
+    <!-- 服务器地址 -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:text="@string/label_server_ip"
+        android:textColor="@color/textSecondary"
+        android:textSize="14sp" />
+
+    <EditText
+        android:id="@+id/et_server_ip"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:hint="@string/hint_server_ip"
+        android:inputType="text"
+        android:maxLines="1"
+        android:background="@color/surface"
+        android:padding="12dp" />
+
+    <!-- 端口 -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/label_server_port"
+        android:textColor="@color/textSecondary"
+        android:textSize="14sp" />
+
+    <EditText
+        android:id="@+id/et_server_port"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:hint="@string/hint_server_port"
+        android:inputType="number"
+        android:maxLines="1"
+        android:background="@color/surface"
+        android:padding="12dp" />
+
+    <!-- 保存按钮 -->
+    <Button
+        android:id="@+id/btn_save"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:text="@string/btn_save"
+        android:background="@color/colorPrimary"
+        android:textColor="@color/surface" />
+
+    <!-- 测试连接按钮 -->
+    <Button
+        android:id="@+id/btn_test_connection"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/btn_test_connection"
+        android:background="@color/textSecondary"
+        android:textColor="@color/surface" />
+
+    <!-- 测试结果 -->
+    <TextView
+        android:id="@+id/tv_test_result"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:textSize="14sp"
+        android:visibility="gone" />
+
+</LinearLayout>

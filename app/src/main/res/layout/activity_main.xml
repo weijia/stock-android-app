@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="@color/background">
+
+    <!-- 顶部状态栏 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/tv_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/status_connected"
+            android:textColor="@color/statusConnected"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/tv_refresh_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:textColor="@color/textSecondary"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/tv_refreshing"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="@string/status_refreshing"
+            android:textColor="@color/colorPrimary"
+            android:textSize="12sp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <!-- 股票代码输入 -->
+    <EditText
+        android:id="@+id/et_stock_code"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:hint="@string/hint_stock_code"
+        android:inputType="number"
+        android:maxLines="1"
+        android:maxLength="6"
+        android:background="@color/surface"
+        android:padding="12dp" />
+
+    <!-- 查询按钮 -->
+    <Button
+        android:id="@+id/btn_query"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/btn_query"
+        android:background="@color/colorPrimary"
+        android:textColor="@color/surface" />
+
+    <!-- 股票信息展示区 -->
+    <LinearLayout
+        android:id="@+id/stock_info_panel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:orientation="vertical"
+        android:background="@color/surface"
+        android:padding="16dp"
+        android:visibility="gone">
+
+        <!-- 股票名称 -->
+        <TextView
+            android:id="@+id/tv_stock_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@color/textPrimary" />
+
+        <!-- 价格和涨跌幅 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/tv_price"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="24sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tv_change_pct"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/tv_change_amt"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:textSize="14sp"
+                android:textColor="@color/textSecondary" />
+        </LinearLayout>
+
+        <!-- 详细数据网格 -->
+        <GridLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:columnCount="2"
+            android:rowCount="3">
+
+            <TextView
+                android:text="@string/label_open"
+                android:textColor="@color/textSecondary"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/tv_open"
+                android:textColor="@color/textPrimary"
+                android:textSize="12sp" />
+
+            <TextView
+                android:text="@string/label_high"
+                android:textColor="@color/textSecondary"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/tv_high"
+                android:textColor="@color/textPrimary"
+                android:textSize="12sp" />
+
+            <TextView
+                android:text="@string/label_low"
+                android:textColor="@color/textSecondary"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/tv_low"
+                android:textColor="@color/textPrimary"
+                android:textSize="12sp" />
+
+            <TextView
+                android:text="@string/label_last_close"
+                android:textColor="@color/textSecondary"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/tv_last_close"
+                android:textColor="@color/textPrimary"
+                android:textSize="12sp" />
+
+            <TextView
+                android:text="@string/label_volume"
+                android:textColor="@color/textSecondary"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/tv_volume"
+                android:textColor="@color/textPrimary"
+                android:textSize="12sp" />
+
+            <TextView
+                android:text="@string/label_amount"
+                android:textColor="@color/textSecondary"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/tv_amount"
+                android:textColor="@color/textPrimary"
+                android:textSize="12sp" />
+        </GridLayout>
+    </LinearLayout>
+
+    <!-- 图表区域 -->
+    <LinearLayout
+        android:id="@+id/chart_panel"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="16dp"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/label_price_chart"
+            android:textColor="@color/textSecondary"
+            android:textSize="12sp" />
+
+        <com.stock.app.view.PriceChartView
+            android:id="@+id/price_chart"
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            android:background="@color/surface" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/label_volume_chart"
+            android:textColor="@color/textSecondary"
+            android:textSize="12sp" />
+
+        <com.stock.app.view.VolumeChartView
+            android:id="@+id/volume_chart"
+            android:layout_width="match_parent"
+            android:layout_height="100dp"
+            android:background="@color/surface" />
+    </LinearLayout>
+
+    <!-- 底部设置按钮 -->
+    <Button
+        android:id="@+id/btn_settings"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/btn_settings"
+        android:background="@color/textSecondary"
+        android:textColor="@color/surface" />
+
+</LinearLayout>
