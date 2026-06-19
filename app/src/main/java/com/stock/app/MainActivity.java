@@ -16,6 +16,7 @@ import android.content.Intent;
 import com.stock.app.model.IntradayData;
 import com.stock.app.model.KLineData;
 import com.stock.app.model.StockData;
+import com.stock.app.service.ItickService;
 import com.stock.app.service.RefreshScheduler;
 import com.stock.app.service.StockService;
 import com.stock.app.util.ConfigManager;
@@ -63,6 +64,7 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
     private ConfigManager configManager;
     private ExternalStorageManager externalStorageManager;
     private StockService stockService;
+    private ItickService itickService;
     private RefreshScheduler refreshScheduler;
 
     // 当前股票代码
@@ -82,6 +84,7 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         // 初始化配置和服务
         configManager = new ConfigManager(this);
         stockService = new StockService(configManager);
+        itickService = new ItickService(configManager);
         refreshScheduler = new RefreshScheduler(stockService);
 
         // 初始化 UI
@@ -107,10 +110,18 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         try {
             JSONObject config = externalStorageManager.loadConfig();
             if (config != null && config.length() > 0) {
+                // 恢复数据源配置
+                String dataSource = config.optString("data_source", "local");
+                configManager.setDataSource(dataSource);
+                
                 // 恢复服务器配置
                 String serverIp = config.optString("server_ip", "localhost");
                 int serverPort = config.optInt("server_port", 8080);
                 String lastCode = config.optString("last_code", "");
+                
+                // 恢复 iTick 配置
+                String itickToken = config.optString("itick_token", "");
+                String itickRegion = config.optString("itick_region", "CN");
                 
                 // 保存到 SharedPreferences（供其他组件使用）
                 configManager.setServerIp(serverIp);
@@ -118,6 +129,10 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
                 if (!TextUtils.isEmpty(lastCode)) {
                     configManager.setLastCode(lastCode);
                 }
+                if (!TextUtils.isEmpty(itickToken)) {
+                    configManager.setItickToken(itickToken);
+                }
+                configManager.setItickRegion(itickRegion);
                 
                 Toast.makeText(this, "配置已恢复: " + externalStorageManager.getStorageLocation(), 
                     Toast.LENGTH_SHORT).show();
@@ -133,9 +148,12 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
     private void saveConfigToExternalStorage() {
         try {
             JSONObject config = new JSONObject();
+            config.put("data_source", configManager.getDataSource());
             config.put("server_ip", configManager.getServerIp());
             config.put("server_port", configManager.getServerPort());
             config.put("last_code", configManager.getLastCode());
+            config.put("itick_token", configManager.getItickToken());
+            config.put("itick_region", configManager.getItickRegion());
             
             externalStorageManager.saveConfig(config);
         } catch (Exception e) {
@@ -188,31 +206,38 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
     }
 
     private void checkServerStatus() {
-        stockService.checkHealth(new StockService.DataCallback<Boolean>() {
-            @Override
-            public void onSuccess(Boolean healthy) {
-                if (healthy) {
-                    tvStatus.setText(R.string.status_connected);
-                    tvStatus.setTextColor(Color.parseColor("#20c997"));
-                } else {
+        if (configManager.useItick()) {
+            // 使用 iTick 数据源
+            tvStatus.setText("数据源: iTick");
+            tvStatus.setTextColor(Color.parseColor("#0d6efd"));
+        } else {
+            // 使用本地服务器
+            stockService.checkHealth(new StockService.DataCallback<Boolean>() {
+                @Override
+                public void onSuccess(Boolean healthy) {
+                    if (healthy) {
+                        tvStatus.setText(R.string.status_connected);
+                        tvStatus.setTextColor(Color.parseColor("#20c997"));
+                    } else {
+                        tvStatus.setText(R.string.status_disconnected);
+                        tvStatus.setTextColor(Color.parseColor("#dc3545"));
+                    }
+                }
+
+                @Override
+                public void onFailure(String error) {
                     tvStatus.setText(R.string.status_disconnected);
                     tvStatus.setTextColor(Color.parseColor("#dc3545"));
                 }
-            }
-
-            @Override
-            public void onFailure(String error) {
-                tvStatus.setText(R.string.status_disconnected);
-                tvStatus.setTextColor(Color.parseColor("#dc3545"));
-            }
-        });
+            });
+        }
     }
 
     private void queryStock() {
         String code = etStockCode.getText().toString().trim();
 
-        // 验证股票代码
-        if (!FormatUtil.isValidStockCode(code)) {
+        // iTick 支持任意股票代码格式，本地服务器需要6位代码
+        if (!configManager.useItick() && !FormatUtil.isValidStockCode(code)) {
             Toast.makeText(this, R.string.error_invalid_code, Toast.LENGTH_SHORT).show();
             return;
         }
@@ -227,29 +252,84 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         // 获取实时行情数据
         fetchRealtimeData(code);
 
-        // 获取分时数据
-        fetchIntradayData(code);
-
         // 获取 K 线数据
         fetchKlineData(code);
+        
+        // 分时数据仅本地服务器支持
+        if (!configManager.useItick()) {
+            fetchIntradayData(code);
+        } else {
+            intradayPanel.setVisibility(View.GONE);
+        }
     }
 
     private void fetchRealtimeData(String code) {
-        stockService.fetchRealtime(code, new StockService.DataCallback<StockData>() {
-            @Override
-            public void onSuccess(StockData data) {
-                updateStockInfo(data);
-                stockInfoPanel.setVisibility(View.VISIBLE);
+        if (configManager.useItick()) {
+            // 使用 iTick 数据源
+            itickService.fetchRealtime(code, new ItickService.DataCallback<StockData>() {
+                @Override
+                public void onSuccess(StockData data) {
+                    updateStockInfo(data);
+                    stockInfoPanel.setVisibility(View.VISIBLE);
+                }
 
-                // 启动定时刷新
-                refreshScheduler.start(code, MainActivity.this);
-            }
+                @Override
+                public void onFailure(String error) {
+                    Toast.makeText(MainActivity.this, error, Toast.LENGTH_SHORT).show();
+                }
+            });
+        } else {
+            // 使用本地服务器
+            stockService.fetchRealtime(code, new StockService.DataCallback<StockData>() {
+                @Override
+                public void onSuccess(StockData data) {
+                    updateStockInfo(data);
+                    stockInfoPanel.setVisibility(View.VISIBLE);
 
-            @Override
-            public void onFailure(String error) {
-                Toast.makeText(MainActivity.this, error, Toast.LENGTH_SHORT).show();
-            }
-        });
+                    // 启动定时刷新（仅本地服务器支持）
+                    refreshScheduler.start(code, MainActivity.this);
+                }
+
+                @Override
+                public void onFailure(String error) {
+                    Toast.makeText(MainActivity.this, error, Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+    }
+
+    private void fetchKlineData(String code) {
+        if (configManager.useItick()) {
+            // 使用 iTick 数据源
+            itickService.fetchKline(code, 30, new ItickService.DataCallback<List<KLineData>>() {
+                @Override
+                public void onSuccess(List<KLineData> data) {
+                    priceChart.setData(data);
+                    volumeChart.setData(data);
+                    chartPanel.setVisibility(View.VISIBLE);
+                }
+
+                @Override
+                public void onFailure(String error) {
+                    Toast.makeText(MainActivity.this, error, Toast.LENGTH_SHORT).show();
+                }
+            });
+        } else {
+            // 使用本地服务器
+            stockService.fetchKline(code, 30, new StockService.DataCallback<List<KLineData>>() {
+                @Override
+                public void onSuccess(List<KLineData> data) {
+                    priceChart.setData(data);
+                    volumeChart.setData(data);
+                    chartPanel.setVisibility(View.VISIBLE);
+                }
+
+                @Override
+                public void onFailure(String error) {
+                    Toast.makeText(MainActivity.this, error, Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
     }
 
     private void fetchIntradayData(String code) {
@@ -265,22 +345,6 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
             public void onFailure(String error) {
                 // 分时数据获取失败时不显示错误，只是隐藏分时图
                 intradayPanel.setVisibility(View.GONE);
-            }
-        });
-    }
-
-    private void fetchKlineData(String code) {
-        stockService.fetchKline(code, 30, new StockService.DataCallback<List<KLineData>>() {
-            @Override
-            public void onSuccess(List<KLineData> data) {
-                priceChart.setData(data);
-                volumeChart.setData(data);
-                chartPanel.setVisibility(View.VISIBLE);
-            }
-
-            @Override
-            public void onFailure(String error) {
-                Toast.makeText(MainActivity.this, error, Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -361,6 +425,7 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         // 停止刷新并释放资源
         refreshScheduler.stop();
         stockService.shutdown();
+        itickService.shutdown();
     }
     
     @Override

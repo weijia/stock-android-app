@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">股票行情</string>
     <string name="settings_title">设置</string>
-    <string name="hint_stock_code">输入股票代码 (如 000001)</string>
+    <string name="hint_stock_code">输入股票代码 (如 000001 或 AAPL)</string>
     <string name="btn_query">查询</string>
     <string name="btn_settings">设置</string>
     <string name="btn_save">保存</string>
@@ -21,7 +21,7 @@
     <string name="error_server_error">服务器异常</string>
     <string name="error_stock_not_found">股票代码不存在</string>
     <string name="error_data_format">数据格式错误</string>
-    <string name="error_invalid_code">请输入6位股票代码</string>
+    <string name="error_invalid_code">请输入股票代码</string>
     <string name="label_open">开盘</string>
     <string name="label_high">最高</string>
     <string name="label_low">最低</string>
@@ -32,4 +32,18 @@
     <string name="unit_wan_yuan">万元</string>
     <string name="connection_test_success">连接成功</string>
     <string name="connection_test_failed">连接失败</string>
+    
+    <!-- iTick 数据源配置 -->
+    <string name="label_data_source">数据源</string>
+    <string name="data_source_local">本地服务器</string>
+    <string name="data_source_itick">iTick API</string>
+    <string name="label_itick_token">iTick Token</string>
+    <string name="hint_itick_token">输入 iTick API Token</string>
+    <string name="label_itick_region">市场区域</string>
+    <string name="itick_region_cn">中国 (A股)</string>
+    <string name="itick_region_us">美国 (美股)</string>
+    <string name="itick_region_hk">香港 (港股)</string>
+    <string name="itick_test_success">iTick Token 有效</string>
+    <string name="itick_test_failed">iTick Token 无效</string>
+    <string name="itick_no_token">请先配置 iTick Token</string>
 </resources>

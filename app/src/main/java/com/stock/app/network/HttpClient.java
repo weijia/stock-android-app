@@ -21,6 +21,18 @@ public class HttpClient {
      * @throws IOException 网络异常
      */
     public String get(String url) throws IOException {
+        return getWithHeader(url, null, null);
+    }
+
+    /**
+     * 执行带自定义 Header 的 GET 请求
+     * @param url 请求 URL
+     * @param headerName Header 名称
+     * @param headerValue Header 值
+     * @return 响应内容
+     * @throws IOException 网络异常
+     */
+    public String getWithHeader(String url, String headerName, String headerValue) throws IOException {
         HttpURLConnection connection = null;
         try {
             URL urlObj = new URL(url);
@@ -29,6 +41,11 @@ public class HttpClient {
             connection.setConnectTimeout(TIMEOUT);
             connection.setReadTimeout(TIMEOUT);
             connection.setDoInput(true);
+
+            // 添加自定义 Header
+            if (headerName != null && headerValue != null) {
+                connection.setRequestProperty(headerName, headerValue);
+            }
 
             int responseCode = connection.getResponseCode();
             if (responseCode == HttpURLConnection.HTTP_OK) {
