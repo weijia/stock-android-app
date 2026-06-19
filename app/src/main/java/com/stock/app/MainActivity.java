@@ -12,12 +12,14 @@ import android.widget.Toast;
 
 import android.app.Activity;
 
+import com.stock.app.model.IntradayData;
 import com.stock.app.model.KLineData;
 import com.stock.app.model.StockData;
 import com.stock.app.service.RefreshScheduler;
 import com.stock.app.service.StockService;
 import com.stock.app.util.ConfigManager;
 import com.stock.app.util.FormatUtil;
+import com.stock.app.view.IntradayChartView;
 import com.stock.app.view.PriceChartView;
 import com.stock.app.view.VolumeChartView;
 
@@ -34,6 +36,7 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
     private Button btnSettings;
     private LinearLayout stockInfoPanel;
     private LinearLayout chartPanel;
+    private LinearLayout intradayPanel;
     private TextView tvStatus;
     private TextView tvRefreshTime;
     private TextView tvRefreshing;
@@ -47,8 +50,10 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
     private TextView tvLastClose;
     private TextView tvVolume;
     private TextView tvAmount;
+    private TextView tvIntradayDate;
     private PriceChartView priceChart;
     private VolumeChartView volumeChart;
+    private IntradayChartView intradayChart;
 
     // 服务组件
     private ConfigManager configManager;
@@ -90,6 +95,7 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         btnSettings = findViewById(R.id.btn_settings);
         stockInfoPanel = findViewById(R.id.stock_info_panel);
         chartPanel = findViewById(R.id.chart_panel);
+        intradayPanel = findViewById(R.id.intraday_panel);
         tvStatus = findViewById(R.id.tv_status);
         tvRefreshTime = findViewById(R.id.tv_refresh_time);
         tvRefreshing = findViewById(R.id.tv_refreshing);
@@ -103,8 +109,10 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         tvLastClose = findViewById(R.id.tv_last_close);
         tvVolume = findViewById(R.id.tv_volume);
         tvAmount = findViewById(R.id.tv_amount);
+        tvIntradayDate = findViewById(R.id.tv_intraday_date);
         priceChart = findViewById(R.id.price_chart);
         volumeChart = findViewById(R.id.volume_chart);
+        intradayChart = findViewById(R.id.intraday_chart);
     }
 
     private void setupClickListeners() {
@@ -165,6 +173,9 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         // 获取实时行情数据
         fetchRealtimeData(code);
 
+        // 获取分时数据
+        fetchIntradayData(code);
+
         // 获取 K 线数据
         fetchKlineData(code);
     }
@@ -183,6 +194,23 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
             @Override
             public void onFailure(String error) {
                 Toast.makeText(MainActivity.this, error, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void fetchIntradayData(String code) {
+        stockService.fetchIntraday(code, new StockService.DataCallback<IntradayData>() {
+            @Override
+            public void onSuccess(IntradayData data) {
+                intradayChart.setData(data);
+                tvIntradayDate.setText(data.getDate());
+                intradayPanel.setVisibility(View.VISIBLE);
+            }
+
+            @Override
+            public void onFailure(String error) {
+                // 分时数据获取失败时不显示错误，只是隐藏分时图
+                intradayPanel.setVisibility(View.GONE);
             }
         });
     }

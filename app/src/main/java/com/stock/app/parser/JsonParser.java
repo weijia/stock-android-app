@@ -1,5 +1,7 @@
 package com.stock.app.parser;
 
+import com.stock.app.model.IntradayData;
+import com.stock.app.model.IntradayPoint;
 import com.stock.app.model.KLineData;
 import com.stock.app.model.StockData;
 
@@ -96,5 +98,44 @@ public class JsonParser {
         JSONObject data = root.getJSONObject("data");
         String status = data.optString("status", "");
         return "ok".equals(status);
+    }
+
+    /**
+     * 解析分时数据
+     * @param json JSON 字符串
+     * @return 分时数据
+     * @throws JSONException 解析异常
+     */
+    public IntradayData parseIntraday(String json) throws JSONException {
+        JSONObject root = new JSONObject(json);
+        int code = root.getInt("code");
+        if (code != 200) {
+            throw new JSONException("API error: " + code);
+        }
+
+        IntradayData intraday = new IntradayData();
+        intraday.setCode(root.optString("code", ""));
+        intraday.setDate(root.optString("date", ""));
+        intraday.setCount(root.optInt("count", 0));
+        intraday.setPreClose(root.optDouble("pre_close", 0));
+
+        JSONArray dataArray = root.optJSONArray("data");
+        if (dataArray != null) {
+            List<IntradayPoint> points = new ArrayList<>();
+            for (int i = 0; i < dataArray.length(); i++) {
+                JSONObject item = dataArray.getJSONObject(i);
+                IntradayPoint point = new IntradayPoint();
+
+                point.setTime(item.optString("time", ""));
+                point.setPrice(item.optDouble("price", 0));
+                point.setVolume(item.optDouble("volume", 0));
+                point.setAvgPrice(item.optDouble("avg_price", 0));
+
+                points.add(point);
+            }
+            intraday.setData(points);
+        }
+
+        return intraday;
     }
 }

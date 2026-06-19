@@ -103,6 +103,15 @@ public class ConfigManager {
     }
 
     /**
+     * 获取分时数据 API URL
+     * @param code 股票代码
+     * @return URL 字符串
+     */
+    public String getIntradayUrl(String code) {
+        return getBaseUrl() + "/api/intraday/" + code;
+    }
+
+    /**
      * 保存服务器配置
      * @param ip IP 地址
      * @param port 端口号

@@ -3,6 +3,7 @@ package com.stock.app.service;
 import android.os.Handler;
 import android.os.Looper;
 
+import com.stock.app.model.IntradayData;
 import com.stock.app.model.KLineData;
 import com.stock.app.model.StockData;
 import com.stock.app.network.HttpClient;
@@ -180,6 +181,45 @@ public class StockService {
                         @Override
                         public void run() {
                             callback.onFailure(e.getMessage());
+                        }
+                    });
+                }
+            }
+        });
+    }
+
+    /**
+     * 获取分时数据
+     * @param code 股票代码
+     * @param callback 回调
+     */
+    public void fetchIntraday(String code, final DataCallback<IntradayData> callback) {
+        executorService.execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    String url = configManager.getIntradayUrl(code);
+                    String response = httpClient.get(url);
+                    IntradayData data = jsonParser.parseIntraday(response);
+
+                    mainHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            callback.onSuccess(data);
+                        }
+                    });
+                } catch (IOException e) {
+                    mainHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            callback.onFailure("网络错误: " + e.getMessage());
+                        }
+                    });
+                } catch (JSONException e) {
+                    mainHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            callback.onFailure("数据解析错误: " + e.getMessage());
                         }
                     });
                 }
