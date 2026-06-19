@@ -19,13 +19,13 @@ android {
             // 从环境变量读取签名配置
             def keystorePath = System.getenv("KEYSTORE_PATH")
             def keystorePassword = System.getenv("KEYSTORE_PASSWORD")
-            def keyAlias = System.getenv("KEY_ALIAS") ?: "release"
+            def keyAliasEnv = System.getenv("KEY_ALIAS")
             def keyPassword = System.getenv("KEY_PASSWORD")
 
-            if (keystorePath != null && keystorePassword != null) {
+            if (keystorePath != null && keystorePassword != null && file(keystorePath).exists()) {
                 storeFile file(keystorePath)
                 storePassword keystorePassword
-                keyAlias keyAlias
+                keyAlias keyAliasEnv ?: "release"
                 keyPassword keyPassword ?: keystorePassword
             }
         }
@@ -36,10 +36,13 @@ android {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             
-            // 如果有 release 签名配置则使用，否则使用 debug 签名
-            if (signingConfigs.release.storeFile != null && signingConfigs.release.storeFile.exists()) {
+            // 如果有 release 签名配置则使用
+            if (signingConfigs.release.storeFile != null) {
                 signingConfig signingConfigs.release
             }
+        }
+        debug {
+            minifyEnabled false
         }
     }
 
