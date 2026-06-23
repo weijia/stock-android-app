@@ -255,12 +255,8 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         // 获取 K 线数据
         fetchKlineData(code);
         
-        // 分时数据仅本地服务器支持
-        if (!configManager.useItick()) {
-            fetchIntradayData(code);
-        } else {
-            intradayPanel.setVisibility(View.GONE);
-        }
+        // 获取分时数据（本地服务器和 iTick 都支持）
+        fetchIntradayData(code);
     }
 
     private void fetchRealtimeData(String code) {
@@ -333,20 +329,49 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
     }
 
     private void fetchIntradayData(String code) {
-        stockService.fetchIntraday(code, new StockService.DataCallback<IntradayData>() {
-            @Override
-            public void onSuccess(IntradayData data) {
-                intradayChart.setData(data);
-                tvIntradayDate.setText(data.getDate());
-                intradayPanel.setVisibility(View.VISIBLE);
-            }
+        if (configManager.useItick()) {
+            // 使用 iTick 数据源获取分时数据（1分钟K线）
+            itickService.fetchIntraday(code, new ItickService.DataCallback<IntradayData>() {
+                @Override
+                public void onSuccess(IntradayData data) {
+                    if (data != null && data.getData() != null && data.getData().size() > 0) {
+                        intradayChart.setData(data);
+                        tvIntradayDate.setText(data.getDate());
+                        intradayPanel.setVisibility(View.VISIBLE);
+                    } else {
+                        // 没有分时数据时隐藏分时图
+                        intradayPanel.setVisibility(View.GONE);
+                    }
+                }
 
-            @Override
-            public void onFailure(String error) {
-                // 分时数据获取失败时不显示错误，只是隐藏分时图
-                intradayPanel.setVisibility(View.GONE);
-            }
-        });
+                @Override
+                public void onFailure(String error) {
+                    // 分时数据获取失败时不显示错误，只是隐藏分时图
+                    intradayPanel.setVisibility(View.GONE);
+                }
+            });
+        } else {
+            // 使用本地服务器获取分时数据
+            stockService.fetchIntraday(code, new StockService.DataCallback<IntradayData>() {
+                @Override
+                public void onSuccess(IntradayData data) {
+                    if (data != null && data.getData() != null && data.getData().size() > 0) {
+                        intradayChart.setData(data);
+                        tvIntradayDate.setText(data.getDate());
+                        intradayPanel.setVisibility(View.VISIBLE);
+                    } else {
+                        // 没有分时数据时隐藏分时图
+                        intradayPanel.setVisibility(View.GONE);
+                    }
+                }
+
+                @Override
+                public void onFailure(String error) {
+                    // 分时数据获取失败时不显示错误，只是隐藏分时图
+                    intradayPanel.setVisibility(View.GONE);
+                }
+            });
+        }
     }
 
     private void updateStockInfo(StockData data) {
