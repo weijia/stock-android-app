@@ -483,6 +483,13 @@ class StockPriceHandler(BaseHTTPRequestHandler):
                 df, error = self.mootdx_provider.fetch_minutes(code, date)
                 
                 if df is not None and not df.empty:
+                    # DEBUG: 打印原始数据结构
+                    if DEBUG:
+                        logger.debug(f"[分时数据] 原始 DataFrame 列名: {df.columns.tolist()}")
+                        logger.debug(f"[分时数据] 前3行数据:")
+                        for i, row in df.head(3).iterrows():
+                            logger.debug(f"  行{i}: {row.to_dict()}")
+                    
                     # 标准化数据
                     records = _df_to_records(df)
                     
