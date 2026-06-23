@@ -184,13 +184,14 @@ public class ItickService {
             public void run() {
                 try {
                     // 使用一个简单请求测试 Token
-                    String url = ConfigManager.ITICK_API_URL + "/stock/quote?symbol=AAPL&region=US";
+                    String url = ConfigManager.ITICK_API_URL + "/stock/kline?region=US&code=AAPL&kType=8&limit=1";
                     
                     // 添加 Token 到请求头
                     String response = httpClient.getWithHeader(url, "token", token);
                     JSONObject root = new JSONObject(response);
                     
-                    boolean valid = root.optInt("code", 0) == 1;
+                    // iTick API: code=0 表示成功
+                    boolean valid = root.optInt("code", -1) == 0;
 
                     mainHandler.post(new Runnable() {
                         @Override
@@ -225,20 +226,19 @@ public class ItickService {
      * 构建实时行情 URL
      */
     private String buildRealtimeUrl(String code) {
-        String region = configManager.getItickRegion();
-        String symbol = convertSymbol(code, region);
-        return ConfigManager.ITICK_API_URL + "/stock/quote?symbol=" + symbol + "&region=" + region;
+        String region = convertRegionForCode(configManager.getItickRegion(), code);
+        String symbol = convertSymbol(code, configManager.getItickRegion());
+        return ConfigManager.ITICK_API_URL + "/stock/quote?region=" + region + "&code=" + symbol;
     }
 
     /**
      * 构建K线 URL
      */
     private String buildKlineUrl(String code, int days) {
-        String region = configManager.getItickRegion();
-        String symbol = convertSymbol(code, region);
-        // iTick K线周期：1分钟、5分钟、15分钟、30分钟、1小时、1天
-        // 使用日线数据
-        return ConfigManager.ITICK_API_URL + "/stock/kline?symbol=" + symbol + "&region=" + region + "&type=8&limit=" + days;
+        String region = convertRegionForCode(configManager.getItickRegion(), code);
+        String symbol = convertSymbol(code, configManager.getItickRegion());
+        // kType=8 表示日线
+        return ConfigManager.ITICK_API_URL + "/stock/kline?region=" + region + "&code=" + symbol + "&kType=8&limit=" + days;
     }
 
     /**
@@ -246,29 +246,60 @@ public class ItickService {
      * 获取当天从开盘到当前时间的所有1分钟数据
      */
     private String buildIntradayUrl(String code) {
-        String region = configManager.getItickRegion();
-        String symbol = convertSymbol(code, region);
-        // type=1 表示1分钟K线，limit=240 表示一天最多240分钟交易时间
-        return ConfigManager.ITICK_API_URL + "/stock/kline?symbol=" + symbol + "&region=" + region + "&type=1&limit=240";
+        String region = convertRegionForCode(configManager.getItickRegion(), code);
+        String symbol = convertSymbol(code, configManager.getItickRegion());
+        // kType=1 表示1分钟K线，limit=240 表示一天最多240分钟交易时间
+        return ConfigManager.ITICK_API_URL + "/stock/kline?region=" + region + "&code=" + symbol + "&kType=1&limit=240";
+    }
+
+    /**
+     * 根据股票代码转换区域为 iTick 格式
+     * CN + 6开头 -> SH
+     * CN + 0/3开头 -> SZ
+     * US -> US
+     * HK -> HK
+     */
+    private String convertRegionForCode(String region, String code) {
+        if ("CN".equals(region)) {
+            // A股需要根据代码判断交易所
+            if (code.startsWith("6") || code.startsWith("68")) {
+                return "SH";  // 上海
+            } else {
+                return "SZ";  // 深圳
+            }
+        }
+        return region;  // US, HK 直接使用
+    }
+
+    /**
+     * 转换区域代码为 iTick 格式（不依赖股票代码）
+     */
+    private String convertRegion(String region) {
+        if ("CN".equals(region)) {
+            return "SH";  // 默认上海
+        }
+        return region;
     }
 
     /**
      * 转换股票代码格式
-     * A股：000001 -> 000001$SZ 或 600000$SH
+     * A股：000001 -> 000001（region 会是 SZ）
+     * 美股：AAPL -> AAPL
+     * 港股：00700 -> 700
      */
     private String convertSymbol(String code, String region) {
         if ("CN".equals(region)) {
             // A股代码判断交易所
-            if (code.startsWith("6")) {
-                return code + "$SH";  // 上海
-            } else if (code.startsWith("0") || code.startsWith("3")) {
-                return code + "$SZ";  // 深圳
-            } else if (code.startsWith("68")) {
-                return code + "$SH";  // 科创板
+            if (code.startsWith("6") || code.startsWith("68")) {
+                return code;  // 上海，region=SH
+            } else {
+                return code;  // 深圳，region=SZ
             }
-            return code + "$SZ";  // 默认深圳
+        } else if ("HK".equals(region)) {
+            // 港股去掉前导零
+            return code.replaceFirst("^0+", "");
         }
-        // 美股和港股直接使用代码
+        // 美股直接使用代码
         return code;
     }
 
@@ -280,7 +311,8 @@ public class ItickService {
     private StockData parseRealtimeResponse(String json, String code) throws JSONException {
         JSONObject root = new JSONObject(json);
         
-        if (root.optInt("code", 0) != 1) {
+        // iTick API: code=0 表示成功
+        if (root.optInt("code", -1) != 0) {
             throw new JSONException("API error: " + root.optString("msg", "unknown"));
         }
 
@@ -308,7 +340,8 @@ public class ItickService {
     private List<KLineData> parseKlineResponse(String json) throws JSONException {
         JSONObject root = new JSONObject(json);
         
-        if (root.optInt("code", 0) != 1) {
+        // iTick API: code=0 表示成功
+        if (root.optInt("code", -1) != 0) {
             throw new JSONException("API error: " + root.optString("msg", "unknown"));
         }
 
@@ -354,7 +387,8 @@ public class ItickService {
     private IntradayData parseIntradayResponse(String json, String code) throws JSONException {
         JSONObject root = new JSONObject(json);
         
-        if (root.optInt("code", 0) != 1) {
+        // iTick API: code=0 表示成功
+        if (root.optInt("code", -1) != 0) {
             throw new JSONException("API error: " + root.optString("msg", "unknown"));
         }
 
@@ -415,7 +449,8 @@ public class ItickService {
             String realtimeUrl = buildRealtimeUrl(code);
             String realtimeResponse = getWithToken(realtimeUrl);
             JSONObject realtimeRoot = new JSONObject(realtimeResponse);
-            if (realtimeRoot.optInt("code", 0) == 1) {
+            // iTick API: code=0 表示成功
+            if (realtimeRoot.optInt("code", -1) == 0) {
                 JSONObject realtimeData = realtimeRoot.getJSONObject("data");
                 preClose = realtimeData.optDouble("p", 0);
             }
