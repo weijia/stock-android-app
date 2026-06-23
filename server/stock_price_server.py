@@ -190,6 +190,48 @@ class MootdxProvider:
             return df, None
         except Exception as e:
             return None, str(e)
+    
+    def fetch_minutes(self, code, date=None):
+        """获取历史分时数据
+        
+        Args:
+            code: 股票代码
+            date: 日期字符串，格式 YYYYMMDD，如 '20261010'
+                  如果不指定，获取最新交易日
+        
+        Returns:
+            DataFrame, error
+        """
+        try:
+            # 使用 mootdx 的 minutes 接口获取历史分时数据
+            # 参考：https://www.mootdx.com/zh-cn/latest/api/quote1/
+            # client.minutes(symbol='000001', date='20171010')
+            
+            if date is None:
+                # 获取最新交易日
+                # 先尝试今天
+                today = datetime.now().strftime('%Y%m%d')
+                df = self.client.minutes(symbol=code, date=today)
+                
+                if df is None or df.empty:
+                    # 尝试上一个交易日
+                    yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y%m%d')
+                    df = self.client.minutes(symbol=code, date=yesterday)
+                    
+                    if df is None or df.empty:
+                        # 尝试前两天
+                        prev_day = (datetime.now() - timedelta(days=2)).strftime('%Y%m%d')
+                        df = self.client.minutes(symbol=code, date=prev_day)
+            
+            else:
+                df = self.client.minutes(symbol=code, date=date)
+            
+            if df is None or df.empty:
+                return None, "无分时数据"
+            
+            return df, None
+        except Exception as e:
+            return None, str(e)
 
 
 class TushareProvider:
@@ -310,7 +352,8 @@ class StockPriceHandler(BaseHTTPRequestHandler):
             # 分时数据
             elif path.startswith('/api/intraday/'):
                 code = path.split('/')[-1]
-                self._handle_intraday(code)
+                date = query.get('date', [None])[0]  # 支持 date 参数
+                self._handle_intraday(code, date)
             
             else:
                 self._send_error(404, "接口不存在")
@@ -376,13 +419,14 @@ class StockPriceHandler(BaseHTTPRequestHandler):
         else:
             self._send_error(503, "无可用数据源")
     
-    def _handle_intraday(self, code):
+    def _handle_intraday(self, code, date=None):
         """分时数据
         
-        获取当天或上一交易日的分时数据（1分钟K线）
+        获取当天或指定日期的分时数据
         
         参数：
         - code: 股票代码（路径中）
+        - date: 日期参数（可选），格式 YYYYMMDD
         
         返回：
         - code: 股票代码
@@ -394,11 +438,11 @@ class StockPriceHandler(BaseHTTPRequestHandler):
         if not code:
             return self._send_error(400, "缺少股票代码")
         
-        # 使用 mootdx 获取分钟数据
+        # 使用 mootdx 获取分时数据
         if self.mootdx_provider:
             try:
-                # 获取240根1分钟K线（一天交易时间约240分钟）
-                df, error = self.mootdx_provider.fetch_minute_data(code, minutes=240, period=7)
+                # 使用 minutes 接口获取历史分时数据
+                df, error = self.mootdx_provider.fetch_minutes(code, date)
                 
                 if df is not None and not df.empty:
                     # 标准化数据
