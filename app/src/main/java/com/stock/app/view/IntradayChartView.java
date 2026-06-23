@@ -73,7 +73,7 @@ public class IntradayChartView extends View {
         // 文字画笔（增大字体）
         textPaint = new Paint();
         textPaint.setColor(Color.parseColor("#6c757d"));
-        textPaint.setTextSize(16f);  // 从12f增大到16f
+        textPaint.setTextSize(20f);  // 从16f增大到20f
         textPaint.setAntiAlias(true);
 
         // 上涨区域填充
@@ -107,7 +107,7 @@ public class IntradayChartView extends View {
         // 当前价格文字画笔
         currentPriceTextPaint = new Paint();
         currentPriceTextPaint.setColor(Color.parseColor("#dc3545"));
-        currentPriceTextPaint.setTextSize(16f);
+        currentPriceTextPaint.setTextSize(20f);  // 与主文字画笔一致
         currentPriceTextPaint.setAntiAlias(true);
         currentPriceTextPaint.setTextAlign(Paint.Align.RIGHT);
     }
@@ -149,7 +149,7 @@ public class IntradayChartView extends View {
 
         Paint emptyPaint = new Paint();
         emptyPaint.setColor(Color.parseColor("#adb5bd"));
-        emptyPaint.setTextSize(16f);
+        emptyPaint.setTextSize(20f);
         emptyPaint.setAntiAlias(true);
         emptyPaint.setTextAlign(Paint.Align.CENTER);
 
