@@ -14,42 +14,11 @@ public class ConfigManager {
     private static final String KEY_SERVER_IP = "server_ip";
     private static final String KEY_SERVER_PORT = "server_port";
     private static final String KEY_LAST_CODE = "last_code";
-    
-    // iTick 配置
-    private static final String KEY_DATA_SOURCE = "data_source";  // "local" 或 "itick"
-    private static final String KEY_ITICK_TOKEN = "itick_token";
-    private static final String KEY_ITICK_REGION = "itick_region";  // "CN", "US", "HK"
 
     private SharedPreferences prefs;
 
     public ConfigManager(Context context) {
         prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-    }
-
-    // ============ 数据源配置 ============
-    
-    /**
-     * 获取数据源类型
-     * @return "local" 或 "itick"
-     */
-    public String getDataSource() {
-        return prefs.getString(KEY_DATA_SOURCE, "local");
-    }
-    
-    /**
-     * 设置数据源类型
-     * @param source "local" 或 "itick"
-     */
-    public void setDataSource(String source) {
-        prefs.edit().putString(KEY_DATA_SOURCE, source).apply();
-    }
-    
-    /**
-     * 是否使用 iTick 数据源
-     * @return 是否使用 iTick
-     */
-    public boolean useItick() {
-        return "itick".equals(getDataSource());
     }
 
     // ============ 本地服务器配置 ============
@@ -157,55 +126,4 @@ public class ConfigManager {
         editor.putInt(KEY_SERVER_PORT, port);
         editor.apply();
     }
-
-    // ============ iTick 配置 ============
-
-    /**
-     * 获取 iTick Token
-     * @return iTick API Token
-     */
-    public String getItickToken() {
-        return prefs.getString(KEY_ITICK_TOKEN, "");
-    }
-
-    /**
-     * 设置 iTick Token
-     * @param token iTick API Token
-     */
-    public void setItickToken(String token) {
-        prefs.edit().putString(KEY_ITICK_TOKEN, token).apply();
-    }
-
-    /**
-     * 获取 iTick 市场区域
-     * @return 区域代码：CN, US, HK
-     */
-    public String getItickRegion() {
-        return prefs.getString(KEY_ITICK_REGION, "CN");
-    }
-
-    /**
-     * 设置 iTick 市场区域
-     * @param region 区域代码：CN, US, HK
-     */
-    public void setItickRegion(String region) {
-        prefs.edit().putString(KEY_ITICK_REGION, region).apply();
-    }
-
-    /**
-     * 保存 iTick 配置
-     * @param token iTick Token
-     * @param region 市场区域
-     */
-    public void saveItickConfig(String token, String region) {
-        SharedPreferences.Editor editor = prefs.edit();
-        editor.putString(KEY_ITICK_TOKEN, token);
-        editor.putString(KEY_ITICK_REGION, region);
-        editor.apply();
-    }
-
-    /**
-     * iTick API 基础 URL
-     */
-    public static final String ITICK_API_URL = "https://api.itick.org";
 }
