@@ -3,8 +3,15 @@
 股票行情 HTTP 服务器
 提供实时行情、K线、分时数据接口
 支持 mDNS 服务发现（推荐）和 UDP 广播发现（备选）
+
+用法:
+  python stock_price_server.py                    # 默认模式
+  python stock_price_server.py --debug            # DEBUG 模式
+  python stock_price_server.py --port 9090        # 指定端口
+  python stock_price_server.py --host 192.168.1.1 # 指定地址
 """
 
+import argparse
 import json
 import logging
 import os
@@ -16,19 +23,11 @@ from datetime import datetime, timedelta
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
-# DEBUG 模式控制
-DEBUG = os.getenv("DEBUG", "false").lower() in ("true", "1", "yes")
+# 全局 DEBUG 标志（由命令行参数或环境变量设置）
+DEBUG = False
 
 # 配置日志
-log_level = logging.DEBUG if DEBUG else logging.INFO
-logging.basicConfig(
-    level=log_level,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
 logger = logging.getLogger("StockServer")
-
-if DEBUG:
-    logger.info("DEBUG 模式已启用，将显示详细请求/响应日志")
 
 # 服务发现配置
 DISCOVERY_PORT = 8081  # UDP 广播端口（备选方案）
@@ -701,8 +700,33 @@ class MDNSRegistrar:
 
 def main():
     """主函数"""
-    host = os.getenv("HOST", "0.0.0.0")
-    port = int(os.getenv("PORT", 8080))
+    global DEBUG
+    
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(description='股票行情 HTTP 服务器')
+    parser.add_argument('--debug', action='store_true',
+                        help='启用 DEBUG 模式，显示详细请求/响应日志')
+    parser.add_argument('--host', type=str, default=os.getenv("HOST", "0.0.0.0"),
+                        help='监听地址 (默认: 0.0.0.0)')
+    parser.add_argument('--port', type=int, default=int(os.getenv("PORT", 8080)),
+                        help='监听端口 (默认: 8080)')
+    args = parser.parse_args()
+    
+    # 设置 DEBUG 模式（命令行参数或环境变量）
+    DEBUG = args.debug or os.getenv("DEBUG", "false").lower() in ("true", "1", "yes")
+    
+    # 配置日志级别
+    log_level = logging.DEBUG if DEBUG else logging.INFO
+    logging.basicConfig(
+        level=log_level,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    
+    if DEBUG:
+        logger.info("DEBUG 模式已启用，将显示详细请求/响应日志")
+    
+    host = args.host
+    port = args.port
     
     # 获取本机 IP 地址
     local_ip = get_local_ip()
@@ -727,12 +751,11 @@ def main():
     logger.info(f"数据源: {DATA_SOURCE}")
     
     if DEBUG:
-        logger.info(f"DEBUG 模式: 已启用")
+        logger.info(f"DEBUG 模式: 已启用 (--debug)")
         logger.info(f"  将显示详细请求/响应日志")
-        logger.info(f"  启用方式: DEBUG=true 或 DEBUG=1")
     else:
         logger.info(f"DEBUG 模式: 未启用")
-        logger.info(f"  启用方式: DEBUG=true python stock_price_server.py")
+        logger.info(f"  启用方式: python stock_price_server.py --debug")
     
     if mdns_started:
         logger.info(f"服务发现: mDNS ({MDNS_SERVICE_TYPE})")
