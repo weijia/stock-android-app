@@ -1,5 +1,7 @@
 package com.stock.app.model;
 
+import com.stock.app.util.FormatUtil;
+
 /**
  * 股票实时行情数据模型
  */
@@ -13,8 +15,8 @@ public class StockData {
     private double low;         // 最低价
     private double changeAmt;   // 涨跌额
     private double changePct;   // 涨跌幅
-    private double volume;      // 成交量（手）
-    private double amount;      // 成交额（万元）
+    private double volume;      // 成交量（股数）
+    private double amount;      // 成交额（元）
     private String timestamp;   // 时间戳
 
     public StockData() {
@@ -132,16 +134,18 @@ public class StockData {
 
     /**
      * 获取格式化的成交量（万手）
+     * volume 是股数，需要转换为万手
      */
     public String getFormattedVolume() {
-        return String.format("%.2f万手", volume / 10000);
+        return FormatUtil.formatVolume(volume);
     }
 
     /**
-     * 获取格式化的成交额（万元）
+     * 获取格式化的成交额（万元或亿元）
+     * amount 是元，需要转换为万元或亿元
      */
     public String getFormattedAmount() {
-        return String.format("%.2f万元", amount);
+        return FormatUtil.formatAmount(amount);
     }
 
     /**

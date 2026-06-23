@@ -26,6 +26,8 @@ public class IntradayChartView extends View {
     private Paint upPaint;
     private Paint downPaint;
     private Paint baseLinePaint;
+    private Paint currentPricePaint;  // 当前价格线画笔
+    private Paint currentPriceTextPaint;  // 当前价格文字画笔
 
     private float padding = 40f;
     private float textHeight = 20f;
@@ -68,10 +70,10 @@ public class IntradayChartView extends View {
         gridPaint.setStyle(Paint.Style.STROKE);
         gridPaint.setAntiAlias(true);
 
-        // 文字画笔（恢复原来大小）
+        // 文字画笔（增大字体）
         textPaint = new Paint();
         textPaint.setColor(Color.parseColor("#6c757d"));
-        textPaint.setTextSize(12f);  // 恢复原来的 12f
+        textPaint.setTextSize(16f);  // 从12f增大到16f
         textPaint.setAntiAlias(true);
 
         // 上涨区域填充
@@ -94,6 +96,20 @@ public class IntradayChartView extends View {
         baseLinePaint.setStrokeWidth(1f);
         baseLinePaint.setStyle(Paint.Style.STROKE);
         baseLinePaint.setAntiAlias(true);
+
+        // 当前价格线画笔（虚线效果）
+        currentPricePaint = new Paint();
+        currentPricePaint.setColor(Color.parseColor("#dc3545"));  // 红色
+        currentPricePaint.setStrokeWidth(1.5f);
+        currentPricePaint.setStyle(Paint.Style.STROKE);
+        currentPricePaint.setAntiAlias(true);
+
+        // 当前价格文字画笔
+        currentPriceTextPaint = new Paint();
+        currentPriceTextPaint.setColor(Color.parseColor("#dc3545"));
+        currentPriceTextPaint.setTextSize(16f);
+        currentPriceTextPaint.setAntiAlias(true);
+        currentPriceTextPaint.setTextAlign(Paint.Align.RIGHT);
     }
 
     public void setData(IntradayData data) {
@@ -133,7 +149,7 @@ public class IntradayChartView extends View {
 
         Paint emptyPaint = new Paint();
         emptyPaint.setColor(Color.parseColor("#adb5bd"));
-        emptyPaint.setTextSize(14f);  // 恢复原来的大小
+        emptyPaint.setTextSize(16f);
         emptyPaint.setAntiAlias(true);
         emptyPaint.setTextAlign(Paint.Align.CENTER);
 
@@ -168,6 +184,9 @@ public class IntradayChartView extends View {
 
         // 绘制均价线
         drawAvgLine(canvas, chartWidth, priceChartHeight, points, preClose, priceTop, priceBottom);
+
+        // 绘制当前价格线
+        drawCurrentPriceLine(canvas, chartWidth, priceChartHeight, points, preClose, priceTop, priceBottom);
     }
 
     private void drawPriceGrid(Canvas canvas, float chartWidth, float priceChartHeight,
@@ -183,21 +202,21 @@ public class IntradayChartView extends View {
         
         // 最高价
         String topPrice = String.format("%.2f", priceTop);
-        canvas.drawText(topPrice, 5f, padding + 5f, textPaint);
+        canvas.drawText(topPrice, 5f, padding + 5f + textPaint.getTextSize()/2, textPaint);
         
         // 昨收价（中间）
         String midPrice = String.format("%.2f", preClose);
-        canvas.drawText(midPrice, 5f, padding + priceChartHeight / 2, textPaint);
+        canvas.drawText(midPrice, 5f, padding + priceChartHeight / 2 + textPaint.getTextSize()/2, textPaint);
         
         // 最低价
         String bottomPrice = String.format("%.2f", priceBottom);
-        canvas.drawText(bottomPrice, 5f, padding + priceChartHeight - 5f, textPaint);
+        canvas.drawText(bottomPrice, 5f, padding + priceChartHeight - 5f + textPaint.getTextSize()/2, textPaint);
 
         // 涨跌幅标签
         double maxChangePct = (priceTop - preClose) / preClose * 100;
         textPaint.setTextAlign(Paint.Align.RIGHT);
-        canvas.drawText(String.format("+%.2f%%", maxChangePct), getWidth() - 5f, padding + 5f, textPaint);
-        canvas.drawText(String.format("%.2f%%", -maxChangePct), getWidth() - 5f, padding + priceChartHeight - 5f, textPaint);
+        canvas.drawText(String.format("+%.2f%%", maxChangePct), getWidth() - 5f, padding + 5f + textPaint.getTextSize()/2, textPaint);
+        canvas.drawText(String.format("%.2f%%", -maxChangePct), getWidth() - 5f, padding + priceChartHeight - 5f + textPaint.getTextSize()/2, textPaint);
     }
 
     private void drawPriceLine(Canvas canvas, float chartWidth, float priceChartHeight,
@@ -265,6 +284,28 @@ public class IntradayChartView extends View {
         canvas.drawPath(avgPath, avgPaint);
     }
 
+    /**
+     * 绘制当前价格线
+     */
+    private void drawCurrentPriceLine(Canvas canvas, float chartWidth, float priceChartHeight,
+                                      List<IntradayPoint> points, double preClose, double priceTop, double priceBottom) {
+        if (points.isEmpty()) return;
+
+        IntradayPoint lastPoint = points.get(points.size() - 1);
+        double currentPrice = lastPoint.getPrice();
+        double priceRange = priceTop - priceBottom;
+
+        // 计算当前价格对应的Y坐标
+        float currentY = padding + (float) ((priceTop - currentPrice) / priceRange * priceChartHeight);
+
+        // 绘制当前价格水平线
+        canvas.drawLine(padding, currentY, padding + chartWidth, currentY, currentPricePaint);
+
+        // 绘制当前价格标签（右侧）
+        String priceText = String.format("%.2f", currentPrice);
+        canvas.drawText(priceText, getWidth() - 5f, currentY + currentPriceTextPaint.getTextSize()/2, currentPriceTextPaint);
+    }
+
     private void drawVolumeChart(Canvas canvas, float chartWidth, float priceChartHeight,
                                   float volumeChartHeight) {
         List<IntradayPoint> points = data.getData();
@@ -313,9 +354,6 @@ public class IntradayChartView extends View {
         textPaint.setTextAlign(Paint.Align.CENTER);
         textPaint.setColor(Color.parseColor("#6c757d"));
 
-        // 显示关键时间点：开盘、午休开始、午休结束、收盘
-        String[] keyTimes = {"09:30", "11:30", "13:00", "15:00"};
-        
         // 在底部显示时间标签
         float labelY = height - 5f;
         
