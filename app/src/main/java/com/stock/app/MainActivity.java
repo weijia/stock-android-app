@@ -297,14 +297,14 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         // 价格
         tvPrice.setText(data.getFormattedPrice());
 
-        // 涨跌幅和颜色
+        // 涨跌幅和颜色（中国股市习惯：涨红跌绿）
         tvChangePct.setText(data.getFormattedChangePct());
         if (data.isUp()) {
-            tvPrice.setTextColor(Color.parseColor("#20c997"));
-            tvChangePct.setTextColor(Color.parseColor("#20c997"));
-        } else if (data.isDown()) {
-            tvPrice.setTextColor(Color.parseColor("#dc3545"));
+            tvPrice.setTextColor(Color.parseColor("#dc3545"));  // 红色表示上涨
             tvChangePct.setTextColor(Color.parseColor("#dc3545"));
+        } else if (data.isDown()) {
+            tvPrice.setTextColor(Color.parseColor("#20c997"));  // 绿色表示下跌
+            tvChangePct.setTextColor(Color.parseColor("#20c997"));
         } else {
             tvPrice.setTextColor(Color.parseColor("#6c757d"));
             tvChangePct.setTextColor(Color.parseColor("#6c757d"));

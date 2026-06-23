@@ -457,7 +457,7 @@ class StockPriceHandler(BaseHTTPRequestHandler):
                     
                     self._send_json(200, {
                         'code': 200,
-                        'code': code,
+                        'stock_code': code,  # 使用 stock_code 避免与响应状态码冲突
                         'date': data_date,
                         'count': len(intraday_data),
                         'pre_close': pre_close,

@@ -114,7 +114,7 @@ public class JsonParser {
         }
 
         IntradayData intraday = new IntradayData();
-        intraday.setCode(root.optString("code", ""));
+        intraday.setCode(root.optString("stock_code", ""));  // 使用 stock_code 字段
         intraday.setDate(root.optString("date", ""));
         intraday.setCount(root.optInt("count", 0));
         intraday.setPreClose(root.optDouble("pre_close", 0));
