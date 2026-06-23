@@ -101,15 +101,13 @@ class MootdxProvider:
         self.client = Quotes.factory(market='std')
     
     def fetch_realtime(self, code):
-        """获取实时行情"""
+        """获取实时行情
+        
+        API: client.quotes(symbol=["000001"])
+        """
         try:
-            # 判断市场
-            market = 'sh' if code.startswith('6') else 'sz'
-            
-            # 使用 security_quotes 获取实时行情
-            df = self.client.security_quotes(
-                security=[f'{market}{code}']
-            )
+            # 使用 quotes 获取实时行情
+            df = self.client.quotes(symbol=[code])
             
             if df is None or df.empty:
                 return None
@@ -141,17 +139,17 @@ class MootdxProvider:
             return None
     
     def fetch_kline(self, code, days=30):
-        """获取 K 线数据"""
+        """获取 K 线数据
+        
+        API: client.bars(symbol='600036', frequency=9)
+        frequency: 9=日线, 7=1分钟, 8=1分钟
+        """
         try:
-            market = 'sh' if code.startswith('6') else 'sz'
-            
             # 获取日线数据
             df = self.client.bars(
                 symbol=code,
-                market=market,
-                category=9,  # 日线
-                offset=0,
-                count=days
+                frequency=9,  # 日线
+                offset=days
             )
             
             if df is None or df.empty:
@@ -162,51 +160,20 @@ class MootdxProvider:
             logger.error(f"mootdx K线获取失败: {e}")
             return None
     
-    def fetch_minute_data(self, code, minutes=240, period=7):
-        """获取分钟数据
-        
-        Args:
-            code: 股票代码
-            minutes: 分钟数（一天约240分钟）
-            period: 周期类型 7=1分钟
-        
-        Returns:
-            DataFrame, error
-        """
-        try:
-            market = 'sh' if code.startswith('6') else 'sz'
-            
-            df = self.client.bars(
-                symbol=code,
-                market=market,
-                category=period,  # 1分钟
-                offset=0,
-                count=minutes
-            )
-            
-            if df is None or df.empty:
-                return None, "无数据"
-            
-            return df, None
-        except Exception as e:
-            return None, str(e)
-    
     def fetch_minutes(self, code, date=None):
         """获取历史分时数据
         
+        API: client.minutes(symbol='000001', date='20171010')
+        
         Args:
             code: 股票代码
-            date: 日期字符串，格式 YYYYMMDD，如 '20261010'
+            date: 日期字符串，格式 YYYYMMDD，如 '20171010'
                   如果不指定，获取最新交易日
         
         Returns:
             DataFrame, error
         """
         try:
-            # 使用 mootdx 的 minutes 接口获取历史分时数据
-            # 参考：https://www.mootdx.com/zh-cn/latest/api/quote1/
-            # client.minutes(symbol='000001', date='20171010')
-            
             if date is None:
                 # 获取最新交易日
                 # 先尝试今天
