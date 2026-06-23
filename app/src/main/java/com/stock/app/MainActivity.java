@@ -304,14 +304,14 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
             itickService.fetchKline(code, 30, new ItickService.DataCallback<List<KLineData>>() {
                 @Override
                 public void onSuccess(List<KLineData> data) {
+                    // 只预加载K线数据，不显示30日图表（分时图优先）
                     priceChart.setData(data);
                     volumeChart.setData(data);
-                    chartPanel.setVisibility(View.VISIBLE);
                 }
 
                 @Override
                 public void onFailure(String error) {
-                    Toast.makeText(MainActivity.this, error, Toast.LENGTH_SHORT).show();
+                    // K线数据获取失败不影响分时图显示
                 }
             });
         } else {
@@ -319,14 +319,14 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
             stockService.fetchKline(code, 30, new StockService.DataCallback<List<KLineData>>() {
                 @Override
                 public void onSuccess(List<KLineData> data) {
+                    // 只预加载K线数据，不显示30日图表（分时图优先）
                     priceChart.setData(data);
                     volumeChart.setData(data);
-                    chartPanel.setVisibility(View.VISIBLE);
                 }
 
                 @Override
                 public void onFailure(String error) {
-                    Toast.makeText(MainActivity.this, error, Toast.LENGTH_SHORT).show();
+                    // K线数据获取失败不影响分时图显示
                 }
             });
         }
