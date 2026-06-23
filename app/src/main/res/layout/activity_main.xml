@@ -19,7 +19,7 @@
             android:layout_height="wrap_content"
             android:text="@string/status_connected"
             android:textColor="@color/statusConnected"
-            android:textSize="12sp" />
+            android:textSize="14sp" />
 
         <TextView
             android:id="@+id/tv_refresh_time"
@@ -27,7 +27,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
             android:textColor="@color/textSecondary"
-            android:textSize="12sp" />
+            android:textSize="14sp" />
 
         <TextView
             android:id="@+id/tv_refreshing"
@@ -36,7 +36,7 @@
             android:layout_marginStart="8dp"
             android:text="@string/status_refreshing"
             android:textColor="@color/colorPrimary"
-            android:textSize="12sp"
+            android:textSize="14sp"
             android:visibility="gone" />
     </LinearLayout>
 
@@ -50,6 +50,7 @@
         android:inputType="number"
         android:maxLines="1"
         android:maxLength="6"
+        android:textSize="18sp"
         android:background="@color/surface"
         android:padding="12dp" />
 
@@ -60,6 +61,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:text="@string/btn_query"
+        android:textSize="18sp"
         android:background="@color/colorPrimary"
         android:textColor="@color/surface" />
 
@@ -79,7 +81,7 @@
             android:id="@+id/tv_stock_name"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textSize="18sp"
+            android:textSize="24sp"
             android:textStyle="bold"
             android:textColor="@color/textPrimary" />
 
@@ -87,7 +89,7 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="12dp"
             android:orientation="horizontal"
             android:gravity="center_vertical">
 
@@ -95,22 +97,23 @@
                 android:id="@+id/tv_price"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textSize="24sp"
+                android:textSize="36sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/tv_change_pct"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
-                android:textSize="16sp" />
+                android:layout_marginStart="20dp"
+                android:textSize="22sp"
+                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/tv_change_amt"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:textSize="14sp"
+                android:layout_marginStart="12dp"
+                android:textSize="18sp"
                 android:textColor="@color/textSecondary" />
         </LinearLayout>
 
@@ -118,69 +121,75 @@
         <GridLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="20dp"
             android:columnCount="2"
             android:rowCount="3">
 
             <TextView
                 android:text="@string/label_open"
                 android:textColor="@color/textSecondary"
-                android:textSize="12sp" />
+                android:textSize="16sp" />
 
             <TextView
                 android:id="@+id/tv_open"
                 android:textColor="@color/textPrimary"
-                android:textSize="12sp" />
+                android:textSize="18sp"
+                android:textStyle="bold" />
 
             <TextView
                 android:text="@string/label_high"
                 android:textColor="@color/textSecondary"
-                android:textSize="12sp" />
+                android:textSize="16sp" />
 
             <TextView
                 android:id="@+id/tv_high"
                 android:textColor="@color/textPrimary"
-                android:textSize="12sp" />
+                android:textSize="18sp"
+                android:textStyle="bold" />
 
             <TextView
                 android:text="@string/label_low"
                 android:textColor="@color/textSecondary"
-                android:textSize="12sp" />
+                android:textSize="16sp" />
 
             <TextView
                 android:id="@+id/tv_low"
                 android:textColor="@color/textPrimary"
-                android:textSize="12sp" />
+                android:textSize="18sp"
+                android:textStyle="bold" />
 
             <TextView
                 android:text="@string/label_last_close"
                 android:textColor="@color/textSecondary"
-                android:textSize="12sp" />
+                android:textSize="16sp" />
 
             <TextView
                 android:id="@+id/tv_last_close"
                 android:textColor="@color/textPrimary"
-                android:textSize="12sp" />
+                android:textSize="18sp"
+                android:textStyle="bold" />
 
             <TextView
                 android:text="@string/label_volume"
                 android:textColor="@color/textSecondary"
-                android:textSize="12sp" />
+                android:textSize="16sp" />
 
             <TextView
                 android:id="@+id/tv_volume"
                 android:textColor="@color/textPrimary"
-                android:textSize="12sp" />
+                android:textSize="18sp"
+                android:textStyle="bold" />
 
             <TextView
                 android:text="@string/label_amount"
                 android:textColor="@color/textSecondary"
-                android:textSize="12sp" />
+                android:textSize="16sp" />
 
             <TextView
                 android:id="@+id/tv_amount"
                 android:textColor="@color/textPrimary"
-                android:textSize="12sp" />
+                android:textSize="18sp"
+                android:textStyle="bold" />
         </GridLayout>
     </LinearLayout>
 
@@ -208,16 +217,16 @@
                 android:layout_height="wrap_content"
                 android:text="分时图"
                 android:textColor="@color/textPrimary"
-                android:textSize="14sp"
+                android:textSize="18sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/tv_intraday_date"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
+                android:layout_marginStart="12dp"
                 android:textColor="@color/textSecondary"
-                android:textSize="12sp" />
+                android:textSize="16sp" />
         </LinearLayout>
 
         <com.stock.app.view.IntradayChartView
@@ -241,7 +250,7 @@
             android:layout_height="wrap_content"
             android:text="@string/label_price_chart"
             android:textColor="@color/textSecondary"
-            android:textSize="12sp" />
+            android:textSize="16sp" />
 
         <com.stock.app.view.PriceChartView
             android:id="@+id/price_chart"
@@ -255,7 +264,7 @@
             android:layout_marginTop="8dp"
             android:text="@string/label_volume_chart"
             android:textColor="@color/textSecondary"
-            android:textSize="12sp" />
+            android:textSize="16sp" />
 
         <com.stock.app.view.VolumeChartView
             android:id="@+id/volume_chart"
@@ -271,6 +280,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
         android:text="@string/btn_settings"
+        android:textSize="18sp"
         android:background="@color/textSecondary"
         android:textColor="@color/surface" />
 
