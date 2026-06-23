@@ -490,19 +490,53 @@ class StockPriceHandler(BaseHTTPRequestHandler):
                         for i, row in df.head(3).iterrows():
                             logger.debug(f"  行{i}: {row.to_dict()}")
                     
-                    # 标准化数据
-                    records = _df_to_records(df)
+                    # mootdx minutes 返回的数据没有时间列，只有 price 和 volume
+                    # 需要根据行索引计算时间（假设从 9:30 开始，每分钟一条）
+                    # 上午: 9:30-11:30 (120分钟), 下午: 13:00-15:00 (120分钟)
+                    
+                    intraday_data = []
+                    total_volume = 0
+                    total_amount = 0
+                    
+                    for idx, row in df.iterrows():
+                        # 计算时间
+                        # idx 是行号，从 0 开始
+                        # 上午时段: 0-119 -> 9:30-11:30
+                        # 下午时段: 120-239 -> 13:00-15:00
+                        if idx < 120:
+                            # 上午: 9:30 + idx 分钟
+                            hour = 9
+                            minute = 30 + idx
+                            if minute >= 60:
+                                hour += 1
+                                minute -= 60
+                        else:
+                            # 下午: 13:00 + (idx - 120) 分钟
+                            hour = 13
+                            minute = idx - 120
+                        
+                        time_str = f"{hour:02d}:{minute:02d}"
+                        
+                        # 获取价格和成交量
+                        price = row.get('price', 0)
+                        volume = row.get('volume', 0) or row.get('vol', 0)
+                        
+                        if price and volume:
+                            total_volume += volume
+                            total_amount += price * volume
+                        
+                        intraday_data.append({
+                            'time': time_str,
+                            'price': float(price) if price else None,
+                            'volume': float(volume) if volume else 0,
+                        })
                     
                     # 计算均价
-                    total_amount = 0
-                    total_volume = 0
-                    for r in records:
-                        vol = r.get('volume', 0) or 0
-                        price = r.get('close', 0) or 0
-                        total_volume += vol
-                        total_amount += vol * price
-                    
                     avg_price = total_amount / total_volume if total_volume > 0 else 0
+                    
+                    # 更新每条记录的均价
+                    for item in intraday_data:
+                        item['avg_price'] = round(avg_price, 2)
                     
                     # 获取昨收价（从实时数据）
                     pre_close = None
@@ -511,27 +545,10 @@ class StockPriceHandler(BaseHTTPRequestHandler):
                         pre_close = realtime_data.get('last_close')
                     
                     # 获取数据日期
-                    data_date = records[0].get('date', '') if records else ''
-                    if isinstance(data_date, str) and len(data_date) >= 10:
-                        data_date = data_date[:10]
-                    
-                    # 格式化分时数据
-                    intraday_data = []
-                    for r in records:
-                        time_str = r.get('date', '')
-                        if isinstance(time_str, str):
-                            # 提取时间部分
-                            if 'T' in time_str:
-                                time_str = time_str.split('T')[1][:5]  # HH:MM
-                            elif len(time_str) > 10:
-                                time_str = time_str[11:16]
-                        
-                        intraday_data.append({
-                            'time': time_str,
-                            'price': r.get('close'),
-                            'volume': r.get('volume'),
-                            'avg_price': round(avg_price, 2)
-                        })
+                    if date:
+                        data_date = f"{date[:4]}-{date[4:6]}-{date[6:8]}"
+                    else:
+                        data_date = datetime.now().strftime('%Y-%m-%d')
                     
                     self._send_json(200, {
                         'code': 200,
