@@ -508,6 +508,7 @@ class DiscoveryBroadcaster:
         self._running = False
         self._socket = None
         self._thread = None
+        self._broadcast_count = 0
     
     def start(self):
         if self._running:
@@ -519,12 +520,17 @@ class DiscoveryBroadcaster:
         
         self._thread = threading.Thread(target=self._broadcast_loop, daemon=True)
         self._thread.start()
-        logger.info(f"UDP 广播服务发现启动: 端口 {DISCOVERY_PORT}")
+        logger.info(f"[服务发现] UDP 广播启动")
+        logger.info(f"[服务发现] 广播端口: {DISCOVERY_PORT}")
+        logger.info(f"[服务发现] 广播间隔: {DISCOVERY_INTERVAL} 秒")
+        logger.info(f"[服务发现] 实例名称: {self.instance_name}")
+        logger.info(f"[服务发现] HTTP 端口: {self.http_port}")
     
     def stop(self):
         self._running = False
         if self._socket:
             self._socket.close()
+        logger.info(f"[服务发现] UDP 广播停止，共发送 {self._broadcast_count} 次广播")
     
     def _broadcast_loop(self):
         """广播循环"""
@@ -533,7 +539,7 @@ class DiscoveryBroadcaster:
                 self._send_broadcast()
             except Exception as e:
                 if self._running:
-                    logger.error(f"广播发送失败: {e}")
+                    logger.error(f"[服务发现] 广播发送失败: {e}")
             
             time.sleep(DISCOVERY_INTERVAL)
     
@@ -550,7 +556,12 @@ class DiscoveryBroadcaster:
         
         data = json.dumps(msg).encode("utf-8")
         self._socket.sendto(data, ("255.255.255.255", DISCOVERY_PORT))
-        logger.debug(f"广播消息: {msg}")
+        self._broadcast_count += 1
+        
+        # 详细调试日志
+        logger.info(f"[服务发现] 广播 #{self._broadcast_count} 已发送")
+        logger.info(f"[服务发现]   目标: 255.255.255.255:{DISCOVERY_PORT}")
+        logger.info(f"[服务发现]   内容: {json.dumps(msg, ensure_ascii=False)}")
 
 
 def main():
@@ -558,12 +569,18 @@ def main():
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", 8080))
     
+    # 获取本机 IP 地址
+    local_ip = get_local_ip()
+    
     # 启动 UDP 广播服务发现
     discovery = DiscoveryBroadcaster(http_port=port)
     discovery.start()
     
     server = HTTPServer((host, port), StockPriceHandler)
-    logger.info(f"股票行情服务器启动: http://{host}:{port}")
+    logger.info(f"股票行情服务器启动")
+    logger.info(f"  本机 IP: {local_ip}")
+    logger.info(f"  HTTP 端口: {port}")
+    logger.info(f"  访问地址: http://{local_ip}:{port}")
     logger.info(f"数据源: {DATA_SOURCE}")
     logger.info(f"服务发现: UDP 广播端口 {DISCOVERY_PORT}")
     logger.info(f"接口列表:")

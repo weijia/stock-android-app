@@ -1,184 +1,226 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="16dp"
+    android:fillViewport="true"
     android:background="@color/background">
 
-    <!-- 标题 -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/settings_title"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:textColor="@color/textPrimary" />
-
-    <!-- 服务器地址 -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:text="@string/label_server_ip"
-        android:textColor="@color/textSecondary"
-        android:textSize="14sp" />
-
-    <EditText
-        android:id="@+id/et_server_ip"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:hint="@string/hint_server_ip"
-        android:inputType="text"
-        android:maxLines="1"
-        android:background="@color/surface"
-        android:padding="12dp" />
-
-    <!-- 端口 -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="@string/label_server_port"
-        android:textColor="@color/textSecondary"
-        android:textSize="14sp" />
-
-    <EditText
-        android:id="@+id/et_server_port"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:hint="@string/hint_server_port"
-        android:inputType="number"
-        android:maxLines="1"
-        android:background="@color/surface"
-        android:padding="12dp" />
-
-    <!-- 测试连接按钮 -->
-    <Button
-        android:id="@+id/btn_test_connection"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="@string/btn_test_connection"
-        android:background="@color/textSecondary"
-        android:textColor="@color/surface" />
-
-    <!-- 测试结果 -->
-    <TextView
-        android:id="@+id/tv_test_result"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:textSize="14sp"
-        android:visibility="gone" />
-
-    <!-- 分隔线 -->
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginTop="24dp"
-        android:background="@color/chartGrid" />
-
-    <!-- 自动发现服务器区域 -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="自动发现服务器"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        android:textColor="@color/textPrimary" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="通过 UDP 广播自动发现局域网中的服务器"
-        android:textColor="@color/textSecondary"
-        android:textSize="12sp" />
-
-    <!-- 自动发现按钮 -->
-    <Button
-        android:id="@+id/btn_auto_discover"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="@string/btn_auto_discover"
-        android:background="@color/colorPrimary"
-        android:textColor="@color/surface" />
-
-    <!-- 发现状态 -->
-    <TextView
-        android:id="@+id/tv_discovery_status"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:textSize="14sp"
-        android:visibility="gone" />
-
-    <!-- 发现的服务器列表 -->
     <LinearLayout
-        android:id="@+id/discovered_servers_panel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:orientation="vertical" />
+        android:orientation="vertical"
+        android:padding="16dp">
 
-    <!-- 分隔线 -->
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginTop="24dp"
-        android:background="@color/chartGrid" />
+        <!-- 标题 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_title"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@color/textPrimary" />
 
-    <!-- 外部存储配置区域 -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="外部存储配置"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        android:textColor="@color/textPrimary" />
+        <!-- 服务器地址 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/label_server_ip"
+            android:textColor="@color/textSecondary"
+            android:textSize="14sp" />
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="配置保存到外部存储，卸载应用后保留"
-        android:textColor="@color/textSecondary"
-        android:textSize="12sp" />
+        <EditText
+            android:id="@+id/et_server_ip"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="@string/hint_server_ip"
+            android:inputType="text"
+            android:maxLines="1"
+            android:background="@color/surface"
+            android:padding="12dp" />
 
-    <!-- 存储位置显示 -->
-    <TextView
-        android:id="@+id/tv_storage_location"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="配置保存位置: SharedPreferences"
-        android:textColor="@color/textSecondary"
-        android:textSize="12sp" />
+        <!-- 端口 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/label_server_port"
+            android:textColor="@color/textSecondary"
+            android:textSize="14sp" />
 
-    <!-- 选择外部存储目录按钮 -->
-    <Button
-        android:id="@+id/btn_select_storage"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="选择外部存储目录"
-        android:background="@color/colorAccent"
-        android:textColor="@color/surface" />
+        <EditText
+            android:id="@+id/et_server_port"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="@string/hint_server_port"
+            android:inputType="number"
+            android:maxLines="1"
+            android:background="@color/surface"
+            android:padding="12dp" />
 
-    <!-- 保存按钮 -->
-    <Button
-        android:id="@+id/btn_save"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:text="@string/btn_save"
-        android:background="@color/colorPrimary"
-        android:textColor="@color/surface" />
+        <!-- 测试连接按钮 -->
+        <Button
+            android:id="@+id/btn_test_connection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/btn_test_connection"
+            android:background="@color/textSecondary"
+            android:textColor="@color/surface" />
 
-</LinearLayout>
+        <!-- 测试结果 -->
+        <TextView
+            android:id="@+id/tv_test_result"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textSize="14sp"
+            android:visibility="gone" />
+
+        <!-- 分隔线 -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="24dp"
+            android:background="@color/chartGrid" />
+
+        <!-- 自动发现服务器区域 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="自动发现服务器"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="@color/textPrimary" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="通过 UDP 广播自动发现局域网中的服务器"
+            android:textColor="@color/textSecondary"
+            android:textSize="12sp" />
+
+        <!-- 自动发现按钮 -->
+        <Button
+            android:id="@+id/btn_auto_discover"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/btn_auto_discover"
+            android:background="@color/colorPrimary"
+            android:textColor="@color/surface" />
+
+        <!-- 发现状态 -->
+        <TextView
+            android:id="@+id/tv_discovery_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textSize="14sp"
+            android:visibility="gone" />
+
+        <!-- 发现的服务器列表 -->
+        <LinearLayout
+            android:id="@+id/discovered_servers_panel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="vertical" />
+
+        <!-- 调试日志区域 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="调试日志"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@color/textSecondary" />
+
+        <ScrollView
+            android:id="@+id/sv_debug_log"
+            android:layout_width="match_parent"
+            android:layout_height="150dp"
+            android:layout_marginTop="8dp"
+            android:background="@color/surface"
+            android:padding="8dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/tv_debug_log"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:textColor="@color/textSecondary"
+                android:fontFamily="monospace" />
+        </ScrollView>
+
+        <!-- 分隔线 -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="24dp"
+            android:background="@color/chartGrid" />
+
+        <!-- 外部存储配置区域 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="外部存储配置"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="@color/textPrimary" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="配置保存到外部存储，卸载应用后保留"
+            android:textColor="@color/textSecondary"
+            android:textSize="12sp" />
+
+        <!-- 存储位置显示 -->
+        <TextView
+            android:id="@+id/tv_storage_location"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="配置保存位置: SharedPreferences"
+            android:textColor="@color/textSecondary"
+            android:textSize="12sp" />
+
+        <!-- 选择外部存储目录按钮 -->
+        <Button
+            android:id="@+id/btn_select_storage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="选择外部存储目录"
+            android:background="@color/colorAccent"
+            android:textColor="@color/surface" />
+
+        <!-- 分隔线 -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="24dp"
+            android:background="@color/chartGrid" />
+
+        <!-- 保存按钮 -->
+        <Button
+            android:id="@+id/btn_save"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/btn_save"
+            android:background="@color/colorPrimary"
+            android:textColor="@color/surface" />
+
+    </LinearLayout>
+
+</ScrollView>

@@ -51,6 +51,9 @@ public class ServerDiscovery {
     // 发现的服务器列表
     private List<DiscoveredServer> discoveredServers = new ArrayList<>();
     
+    // 调试日志回调
+    private DebugLogCallback debugLogCallback;
+    
     /**
      * 发现的服务器信息
      */
@@ -84,6 +87,13 @@ public class ServerDiscovery {
         void onError(String error);
     }
     
+    /**
+     * 调试日志回调接口
+     */
+    public interface DebugLogCallback {
+        void onDebugLog(String log);
+    }
+    
     public ServerDiscovery(Context context) {
         this.context = context;
         this.executorService = Executors.newSingleThreadExecutor();
@@ -94,6 +104,31 @@ public class ServerDiscovery {
             .getSystemService(Context.WIFI_SERVICE);
         if (wifiManager != null) {
             multicastLock = wifiManager.createMulticastLock("stock-discovery");
+            logDebug("WiFi 管理器已获取");
+        } else {
+            logDebug("警告: WiFi 管理器不可用");
+        }
+    }
+    
+    /**
+     * 设置调试日志回调
+     */
+    public void setDebugLogCallback(DebugLogCallback callback) {
+        this.debugLogCallback = callback;
+    }
+    
+    /**
+     * 输出调试日志
+     */
+    private void logDebug(String message) {
+        Log.d(TAG, message);
+        if (debugLogCallback != null) {
+            mainHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    debugLogCallback.onDebugLog(message);
+                }
+            });
         }
     }
     
@@ -103,41 +138,62 @@ public class ServerDiscovery {
      * @param callback 回调
      */
     public void startDiscovery(int timeout, final DiscoveryCallback callback) {
+        logDebug("[服务发现] 开始启动...");
+        logDebug("[服务发现] 监听端口: " + DISCOVERY_PORT);
+        logDebug("[服务发现] 超时时间: " + timeout + " ms");
+        
         executorService.execute(new Runnable() {
             @Override
             public void run() {
                 try {
                     // 获取 WiFi 锁
                     if (multicastLock != null) {
+                        logDebug("[服务发现] 获取 MulticastLock...");
                         multicastLock.acquire();
+                        logDebug("[服务发现] MulticastLock 已获取: " + multicastLock.isHeld());
+                    } else {
+                        logDebug("[服务发现] 错误: MulticastLock 不可用");
                     }
                     
                     // 创建 UDP socket
+                    logDebug("[服务发现] 创建 UDP Socket...");
                     socket = new DatagramSocket(DISCOVERY_PORT);
-                    socket.setSoTimeout(timeout);
+                    socket.setSoTimeout(1000); // 1秒超时，便于循环检查
                     socket.setReuseAddress(true);
+                    logDebug("[服务发现] UDP Socket 已创建");
+                    logDebug("[服务发现] 本地端口: " + socket.getLocalPort());
+                    logDebug("[服务发现] Socket 超时: 1000 ms");
                     
                     running = true;
                     discoveredServers.clear();
                     
-                    Log.i(TAG, "开始监听 UDP 广播: 端口 " + DISCOVERY_PORT);
+                    logDebug("[服务发现] 开始监听广播...");
                     
                     // 监听广播消息
                     byte[] buffer = new byte[1024];
                     DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                     
                     long startTime = System.currentTimeMillis();
+                    int receiveCount = 0;
                     
                     while (running && (System.currentTimeMillis() - startTime) < timeout) {
                         try {
                             socket.receive(packet);
+                            receiveCount++;
                             
                             String message = new String(packet.getData(), 0, packet.getLength());
-                            Log.d(TAG, "收到广播消息: " + message);
+                            String sourceIp = packet.getAddress().getHostAddress();
+                            int sourcePort = packet.getPort();
+                            
+                            logDebug("[服务发现] 收到数据包 #" + receiveCount);
+                            logDebug("[服务发现]   来源: " + sourceIp + ":" + sourcePort);
+                            logDebug("[服务发现]   内容: " + message);
                             
                             // 解析 JSON
                             JSONObject json = new JSONObject(message);
                             String service = json.optString("service", "");
+                            
+                            logDebug("[服务发现]   service: " + service);
                             
                             if ("stock-server".equals(service)) {
                                 DiscoveredServer server = new DiscoveredServer();
@@ -145,6 +201,11 @@ public class ServerDiscovery {
                                 server.address = json.optString("address", "");
                                 server.httpPort = json.optInt("http_port", 8080);
                                 server.timestamp = json.optLong("timestamp", 0);
+                                
+                                logDebug("[服务发现] 发现股票服务器!");
+                                logDebug("[服务发现]   实例: " + server.instance);
+                                logDebug("[服务发现]   地址: " + server.address);
+                                logDebug("[服务发现]   HTTP端口: " + server.httpPort);
                                 
                                 // 检查是否已存在
                                 boolean exists = false;
@@ -157,7 +218,7 @@ public class ServerDiscovery {
                                 
                                 if (!exists) {
                                     discoveredServers.add(server);
-                                    Log.i(TAG, "发现服务器: " + server);
+                                    logDebug("[服务发现] 添加到服务器列表");
                                     
                                     // 回调通知
                                     mainHandler.post(new Runnable() {
@@ -166,12 +227,26 @@ public class ServerDiscovery {
                                             callback.onServerFound(server);
                                         }
                                     });
+                                } else {
+                                    logDebug("[服务发现] 服务器已存在，跳过");
                                 }
+                            } else {
+                                logDebug("[服务发现] 不是股票服务器，忽略");
                             }
                         } catch (java.net.SocketTimeoutException e) {
-                            // 超时，继续等待
+                            // 每秒超时，继续等待
+                            long elapsed = System.currentTimeMillis() - startTime;
+                            if (elapsed % 5000 < 1000) { // 每5秒打印一次状态
+                                logDebug("[服务发现] 等待中... (" + elapsed/1000 + "s / " + timeout/1000 + "s)");
+                            }
                         }
                     }
+                    
+                    long totalTime = System.currentTimeMillis() - startTime;
+                    logDebug("[服务发现] 监听结束");
+                    logDebug("[服务发现] 总时间: " + totalTime + " ms");
+                    logDebug("[服务发现] 收到数据包: " + receiveCount + " 个");
+                    logDebug("[服务发现] 发现服务器: " + discoveredServers.size() + " 个");
                     
                     // 完成发现
                     mainHandler.post(new Runnable() {
@@ -182,7 +257,8 @@ public class ServerDiscovery {
                     });
                     
                 } catch (Exception e) {
-                    Log.e(TAG, "发现服务器失败: " + e.getMessage());
+                    logDebug("[服务发现] 错误: " + e.getClass().getSimpleName() + " - " + e.getMessage());
+                    Log.e(TAG, "发现服务器失败: " + e.getMessage(), e);
                     mainHandler.post(new Runnable() {
                         @Override
                         public void run() {
@@ -194,8 +270,10 @@ public class ServerDiscovery {
                     
                     // 释放 WiFi 锁
                     if (multicastLock != null && multicastLock.isHeld()) {
+                        logDebug("[服务发现] 释放 MulticastLock");
                         multicastLock.release();
                     }
+                    logDebug("[服务发现] 清理完成");
                 }
             }
         });
@@ -208,6 +286,7 @@ public class ServerDiscovery {
         running = false;
         if (socket != null && !socket.isClosed()) {
             socket.close();
+            logDebug("[服务发现] Socket 已关闭");
         }
         Log.i(TAG, "停止监听 UDP 广播");
     }

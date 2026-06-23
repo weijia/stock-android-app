@@ -9,6 +9,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -35,6 +36,8 @@ public class SettingsActivity extends Activity {
     private Button btnAutoDiscover;
     private TextView tvDiscoveryStatus;
     private LinearLayout discoveredServersPanel;
+    private TextView tvDebugLog;
+    private ScrollView svDebugLog;
     private Button btnSelectStorage;
     private TextView tvStorageLocation;
 
@@ -43,6 +46,9 @@ public class SettingsActivity extends Activity {
     private ExternalStorageManager externalStorageManager;
     private StockService stockService;
     private ServerDiscovery serverDiscovery;
+    
+    // 调试日志缓冲
+    private StringBuilder debugLogBuffer = new StringBuilder();
 
     public static void start(Activity activity) {
         Intent intent = new Intent(activity, SettingsActivity.class);
@@ -59,6 +65,14 @@ public class SettingsActivity extends Activity {
         externalStorageManager = new ExternalStorageManager(this);
         stockService = new StockService(configManager);
         serverDiscovery = new ServerDiscovery(this);
+        
+        // 设置调试日志回调
+        serverDiscovery.setDebugLogCallback(new ServerDiscovery.DebugLogCallback() {
+            @Override
+            public void onDebugLog(String log) {
+                appendDebugLog(log);
+            }
+        });
 
         // 初始化 UI
         initViews();
@@ -79,6 +93,8 @@ public class SettingsActivity extends Activity {
         btnAutoDiscover = findViewById(R.id.btn_auto_discover);
         tvDiscoveryStatus = findViewById(R.id.tv_discovery_status);
         discoveredServersPanel = findViewById(R.id.discovered_servers_panel);
+        tvDebugLog = findViewById(R.id.tv_debug_log);
+        svDebugLog = findViewById(R.id.sv_debug_log);
         
         // 外部存储相关 UI
         btnSelectStorage = findViewById(R.id.btn_select_storage);
@@ -131,9 +147,42 @@ public class SettingsActivity extends Activity {
     }
 
     /**
+     * 添加调试日志
+     */
+    private void appendDebugLog(String log) {
+        if (tvDebugLog == null) return;
+        
+        debugLogBuffer.append(log).append("\n");
+        tvDebugLog.setText(debugLogBuffer.toString());
+        
+        // 自动滚动到底部
+        if (svDebugLog != null) {
+            svDebugLog.post(new Runnable() {
+                @Override
+                public void run() {
+                    svDebugLog.fullScroll(View.FOCUS_DOWN);
+                }
+            });
+        }
+    }
+    
+    /**
+     * 清空调试日志
+     */
+    private void clearDebugLog() {
+        debugLogBuffer.setLength(0);
+        if (tvDebugLog != null) {
+            tvDebugLog.setText("");
+        }
+    }
+
+    /**
      * 开始自动发现服务器
      */
     private void startAutoDiscovery() {
+        // 清空调试日志
+        clearDebugLog();
+        
         tvDiscoveryStatus.setVisibility(View.VISIBLE);
         tvDiscoveryStatus.setText(R.string.status_discovering);
         tvDiscoveryStatus.setTextColor(Color.parseColor("#6c757d"));
@@ -143,6 +192,14 @@ public class SettingsActivity extends Activity {
         
         // 禁用按钮
         btnAutoDiscover.setEnabled(false);
+        
+        // 显示调试日志区域
+        if (svDebugLog != null) {
+            svDebugLog.setVisibility(View.VISIBLE);
+        }
+        
+        appendDebugLog("=== 服务发现调试日志 ===");
+        appendDebugLog("时间: " + new java.text.SimpleDateFormat("HH:mm:ss").format(new java.util.Date()));
         
         // 开始发现
         serverDiscovery.startDiscovery(30000, new ServerDiscovery.DiscoveryCallback() {
