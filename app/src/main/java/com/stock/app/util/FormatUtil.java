@@ -57,20 +57,43 @@ public class FormatUtil {
 
     /**
      * 格式化成交量（万手）
-     * @param volume 成交量（手）
+     * @param volume 成交量（股数）
      * @return 格式化后的成交量
+     * 
+     * mootdx 返回的 volume 是股数，1手 = 100股
+     * 所以：股数 / 100 = 手数，手数 / 10000 = 万手
      */
     public static String formatVolume(double volume) {
-        return String.format("%.2f万手", volume / 10000);
+        // volume 是股数，转换为万手
+        double wanShou = volume / 100 / 10000;  // 股 -> 手 -> 万手
+        if (wanShou >= 1) {
+            return String.format("%.2f万手", wanShou);
+        } else {
+            // 小于1万手，显示手数
+            double shou = volume / 100;
+            return String.format("%.0f手", shou);
+        }
     }
 
     /**
-     * 格式化成交额（万元）
-     * @param amount 成交额（万元）
+     * 格式化成交额（万元或亿元）
+     * @param amount 成交额（元）
      * @return 格式化后的成交额
+     * 
+     * mootdx 返回的 amount 是元
      */
     public static String formatAmount(double amount) {
-        return String.format("%.2f万元", amount);
+        // amount 是元，转换为万元或亿元
+        double yiYuan = amount / 100000000;  // 元 -> 亿元
+        double wanYuan = amount / 10000;     // 元 -> 万元
+        
+        if (yiYuan >= 1) {
+            return String.format("%.2f亿", yiYuan);
+        } else if (wanYuan >= 1) {
+            return String.format("%.2f万", wanYuan);
+        } else {
+            return String.format("%.0f元", amount);
+        }
     }
 
     /**

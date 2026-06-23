@@ -27,8 +27,8 @@ public class IntradayChartView extends View {
     private Paint downPaint;
     private Paint baseLinePaint;
 
-    private float padding = 50f;
-    private float textHeight = 30f;
+    private float padding = 40f;
+    private float textHeight = 20f;
     private float chartHeightRatio = 0.7f;  // 价格图占70%，成交量图占30%
 
     public IntradayChartView(Context context) {
@@ -68,12 +68,11 @@ public class IntradayChartView extends View {
         gridPaint.setStyle(Paint.Style.STROKE);
         gridPaint.setAntiAlias(true);
 
-        // 文字画笔（调大字体）
+        // 文字画笔（恢复原来大小）
         textPaint = new Paint();
-        textPaint.setColor(Color.parseColor("#495057"));
-        textPaint.setTextSize(18f);  // 从 12f 调大到 18f
+        textPaint.setColor(Color.parseColor("#6c757d"));
+        textPaint.setTextSize(12f);  // 恢复原来的 12f
         textPaint.setAntiAlias(true);
-        textPaint.setStrokeWidth(0f);
 
         // 上涨区域填充
         upPaint = new Paint();
@@ -134,7 +133,7 @@ public class IntradayChartView extends View {
 
         Paint emptyPaint = new Paint();
         emptyPaint.setColor(Color.parseColor("#adb5bd"));
-        emptyPaint.setTextSize(18f);  // 调大字体
+        emptyPaint.setTextSize(14f);  // 恢复原来的大小
         emptyPaint.setAntiAlias(true);
         emptyPaint.setTextAlign(Paint.Align.CENTER);
 
