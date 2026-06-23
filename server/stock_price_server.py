@@ -16,12 +16,19 @@ from datetime import datetime, timedelta
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
+# DEBUG 模式控制
+DEBUG = os.getenv("DEBUG", "false").lower() in ("true", "1", "yes")
+
 # 配置日志
+log_level = logging.DEBUG if DEBUG else logging.INFO
 logging.basicConfig(
-    level=logging.INFO,
+    level=log_level,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger("StockServer")
+
+if DEBUG:
+    logger.info("DEBUG 模式已启用，将显示详细请求/响应日志")
 
 # 服务发现配置
 DISCOVERY_PORT = 8081  # UDP 广播端口（备选方案）
@@ -299,67 +306,113 @@ class StockPriceHandler(BaseHTTPRequestHandler):
         """自定义日志格式"""
         logger.info("%s - %s", self.address_string(), format % args)
     
-    def _send_json(self, code, data):
+    def _log_request(self, method, path, query=None):
+        """记录请求详情（DEBUG 模式）"""
+        if DEBUG:
+            logger.debug("=" * 60)
+            logger.debug(f"[REQUEST] {method} {path}")
+            logger.debug(f"  客户端: {self.address_string()}")
+            logger.debug(f"  时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')}")
+            if query:
+                logger.debug(f"  参数: {query}")
+            logger.debug(f"  Headers:")
+            for header, value in self.headers.items():
+                logger.debug(f"    {header}: {value}")
+            logger.debug("=" * 60)
+    
+    def _send_json(self, code, data, request_time=None):
         """发送 JSON 响应"""
+        response_body = json.dumps(data, ensure_ascii=False).encode('utf-8')
+        
+        # DEBUG 模式下记录响应详情
+        if DEBUG:
+            logger.debug("=" * 60)
+            logger.debug(f"[RESPONSE] HTTP {code}")
+            if request_time:
+                logger.debug(f"  处理时间: {request_time:.3f} ms")
+            logger.debug(f"  Content-Type: application/json; charset=utf-8")
+            logger.debug(f"  Content-Length: {len(response_body)} bytes")
+            logger.debug(f"  Body:")
+            # 格式化 JSON 输出
+            try:
+                formatted = json.dumps(data, ensure_ascii=False, indent=2)
+                for line in formatted.split('\n')[:50]:  # 限制行数
+                    logger.debug(f"    {line}")
+                if len(formatted.split('\n')) > 50:
+                    logger.debug(f"    ... (共 {len(formatted.split('\n'))} 行)")
+            except:
+                logger.debug(f"    {data}")
+            logger.debug("=" * 60)
+        
         self.send_response(code)
         self.send_header('Content-Type', 'application/json; charset=utf-8')
         self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Content-Length', len(response_body))
         self.end_headers()
-        self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
+        self.wfile.write(response_body)
     
-    def _send_error(self, code, message):
+    def _send_error(self, code, message, request_time=None):
         """发送错误响应"""
-        self._send_json(code, {'code': code, 'error': message})
+        self._send_json(code, {'code': code, 'error': message}, request_time)
     
     def do_GET(self):
         """处理 GET 请求"""
+        start_time = time.time()
         parsed = urlparse(self.path)
         path = parsed.path
         query = parse_qs(parsed.query)
         
+        # 记录请求详情
+        self._log_request("GET", path, query)
         logger.info(f"GET {path}")
         
         try:
             # 健康检查
             if path == '/api/health':
-                self._handle_health()
+                self._handle_health(start_time)
             
             # 实时行情
             elif path.startswith('/api/realtime/'):
                 code = path.split('/')[-1]
-                self._handle_realtime(code)
+                self._handle_realtime(code, start_time)
             
             # K 线数据
             elif path.startswith('/api/kline/'):
                 code = path.split('/')[-1]
                 days = int(query.get('days', ['30'])[0])
-                self._handle_kline(code, days)
+                self._handle_kline(code, days, start_time)
             
             # 分时数据
             elif path.startswith('/api/intraday/'):
                 code = path.split('/')[-1]
                 date = query.get('date', [None])[0]  # 支持 date 参数
-                self._handle_intraday(code, date)
+                self._handle_intraday(code, date, start_time)
             
             else:
-                self._send_error(404, "接口不存在")
+                self._send_error(404, "接口不存在", self._get_elapsed_ms(start_time))
         
         except Exception as e:
             logger.error(f"请求处理异常: {e}")
-            self._send_error(500, str(e))
+            if DEBUG:
+                logger.exception("详细异常信息:")
+            self._send_error(500, str(e), self._get_elapsed_ms(start_time))
     
-    def _handle_health(self):
+    def _get_elapsed_ms(self, start_time):
+        """计算处理时间（毫秒）"""
+        return (time.time() - start_time) * 1000
+    
+    def _handle_health(self, start_time=None):
         """健康检查"""
         self._send_json(200, {
             'code': 200,
             'data': {'status': 'ok'},
             'timestamp': datetime.now().isoformat()
-        })
+        }, self._get_elapsed_ms(start_time) if start_time else None)
     
-    def _handle_realtime(self, code):
+    def _handle_realtime(self, code, start_time=None):
         """实时行情"""
         if not code:
-            return self._send_error(400, "缺少股票代码")
+            return self._send_error(400, "缺少股票代码", self._get_elapsed_ms(start_time) if start_time else None)
         
         data = None
         
@@ -376,14 +429,14 @@ class StockPriceHandler(BaseHTTPRequestHandler):
                 'code': 200,
                 'data': data,
                 'timestamp': datetime.now().isoformat()
-            })
+            }, self._get_elapsed_ms(start_time) if start_time else None)
         else:
-            self._send_error(503, "无可用数据源")
+            self._send_error(503, "无可用数据源", self._get_elapsed_ms(start_time) if start_time else None)
     
-    def _handle_kline(self, code, days):
+    def _handle_kline(self, code, days, start_time=None):
         """K 线数据"""
         if not code:
-            return self._send_error(400, "缺少股票代码")
+            return self._send_error(400, "缺少股票代码", self._get_elapsed_ms(start_time) if start_time else None)
         
         records = None
         
@@ -401,11 +454,11 @@ class StockPriceHandler(BaseHTTPRequestHandler):
                     'count': len(records),
                     'data': records
                 }
-            })
+            }, self._get_elapsed_ms(start_time) if start_time else None)
         else:
-            self._send_error(503, "无可用数据源")
+            self._send_error(503, "无可用数据源", self._get_elapsed_ms(start_time) if start_time else None)
     
-    def _handle_intraday(self, code, date=None):
+    def _handle_intraday(self, code, date=None, start_time=None):
         """分时数据
         
         获取当天或指定日期的分时数据
@@ -422,7 +475,7 @@ class StockPriceHandler(BaseHTTPRequestHandler):
         - data: [{time, price, volume, avg_price}, ...] 按时间升序
         """
         if not code:
-            return self._send_error(400, "缺少股票代码")
+            return self._send_error(400, "缺少股票代码", self._get_elapsed_ms(start_time) if start_time else None)
         
         # 使用 mootdx 获取分时数据
         if self.mootdx_provider:
@@ -481,14 +534,17 @@ class StockPriceHandler(BaseHTTPRequestHandler):
                         'count': len(intraday_data),
                         'pre_close': pre_close,
                         'data': intraday_data
-                    })
+                    }, self._get_elapsed_ms(start_time) if start_time else None)
                     return
                 else:
                     logger.warning(f"mootdx分时数据获取失败: {error}")
             except Exception as e:
                 logger.error(f"分时数据处理异常: {e}")
+                if DEBUG:
+                    logger.exception("详细异常信息:")
         
-        self._send_error(503, "分时数据不可用，需要安装 mootdx 并确保通达信服务器可访问")
+        self._send_error(503, "分时数据不可用，需要安装 mootdx 并确保通达信服务器可访问", 
+                         self._get_elapsed_ms(start_time) if start_time else None)
 
 
 def get_local_ip():
@@ -669,6 +725,14 @@ def main():
     logger.info(f"  HTTP 端口: {port}")
     logger.info(f"  访问地址: http://{local_ip}:{port}")
     logger.info(f"数据源: {DATA_SOURCE}")
+    
+    if DEBUG:
+        logger.info(f"DEBUG 模式: 已启用")
+        logger.info(f"  将显示详细请求/响应日志")
+        logger.info(f"  启用方式: DEBUG=true 或 DEBUG=1")
+    else:
+        logger.info(f"DEBUG 模式: 未启用")
+        logger.info(f"  启用方式: DEBUG=true python stock_price_server.py")
     
     if mdns_started:
         logger.info(f"服务发现: mDNS ({MDNS_SERVICE_TYPE})")
