@@ -29,6 +29,24 @@ jobs:
       with:
         gradle-version: '7.5'
 
+    - name: Update versionCode before build
+      id: version
+      run: |
+        VERSION_NAME=$(grep "versionName" app/build.gradle | head -1 | sed 's/.*versionName *"\([^"]*\)".*/\1/')
+        BUILD_NUMBER=${{ github.run_number }}
+        
+        # 在构建之前更新 versionCode，确保递增
+        sed -i "s/versionCode [0-9]*/versionCode ${BUILD_NUMBER}/" app/build.gradle
+        
+        # 显示更新后的 versionCode
+        echo "Updated versionCode:"
+        grep "versionCode" app/build.gradle
+        
+        echo "version_name=${VERSION_NAME}" >> $GITHUB_OUTPUT
+        echo "build_number=${BUILD_NUMBER}" >> $GITHUB_OUTPUT
+        echo "apk_name=stock-app-v${VERSION_NAME}-build${BUILD_NUMBER}.apk" >> $GITHUB_OUTPUT
+        echo "Version: ${VERSION_NAME}, Build: ${BUILD_NUMBER}"
+
     - name: Setup Release Keystore
       env:
         KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -49,18 +67,6 @@ jobs:
     - name: Build Debug APK (fallback)
       if: env.KEYSTORE_PATH == ''
       run: gradle assembleDebug
-
-    - name: Get version info
-      id: version
-      run: |
-        VERSION_NAME=$(grep "versionName" app/build.gradle | head -1 | sed 's/.*versionName *"\([^"]*\)".*/\1/')
-        BUILD_NUMBER=${{ github.run_number }}
-        # 更新 versionCode 为构建号，确保递增
-        sed -i "s/versionCode 1/versionCode ${BUILD_NUMBER}/" app/build.gradle
-        echo "version_name=${VERSION_NAME}" >> $GITHUB_OUTPUT
-        echo "build_number=${BUILD_NUMBER}" >> $GITHUB_OUTPUT
-        echo "apk_name=stock-app-v${VERSION_NAME}-build${BUILD_NUMBER}.apk" >> $GITHUB_OUTPUT
-        echo "Version: ${VERSION_NAME}, Build: ${BUILD_NUMBER}"
 
     - name: List APK files
       run: |
