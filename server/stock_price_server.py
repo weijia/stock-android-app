@@ -514,10 +514,10 @@ def main():
     logger.info(f"股票行情服务器启动: http://{host}:{port}")
     logger.info(f"数据源: {DATA_SOURCE}")
     logger.info(f"接口列表:")
-    logger.info(f"  - /api/health - 健康检查")
-    logger.info(f"  - /api/realtime/{code} - 实时行情")
-    logger.info(f"  - /api/kline/{code}?days=30 - K线数据")
-    logger.info(f"  - /api/intraday/{code} - 分时数据")
+    logger.info("  - /api/health - 健康检查")
+    logger.info("  - /api/realtime/<code> - 实时行情（示例：000001）")
+    logger.info("  - /api/kline/<code>?days=30 - K线数据（示例：000001）")
+    logger.info("  - /api/intraday/<code>?date=YYYYMMDD - 分时数据（示例：000001）")
     
     try:
         server.serve_forever()
