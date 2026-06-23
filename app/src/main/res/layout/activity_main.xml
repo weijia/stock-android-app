@@ -184,11 +184,12 @@
         </GridLayout>
     </LinearLayout>
 
-    <!-- 分时图区域 -->
+    <!-- 分时图区域（主要显示） -->
     <LinearLayout
         android:id="@+id/intraday_panel"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:layout_marginTop="16dp"
         android:orientation="vertical"
         android:background="@color/surface"
@@ -206,8 +207,9 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="分时图"
-                android:textColor="@color/textSecondary"
-                android:textSize="12sp" />
+                android:textColor="@color/textPrimary"
+                android:textSize="14sp"
+                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/tv_intraday_date"
@@ -221,16 +223,15 @@
         <com.stock.app.view.IntradayChartView
             android:id="@+id/intraday_chart"
             android:layout_width="match_parent"
-            android:layout_height="250dp"
+            android:layout_height="match_parent"
             android:layout_marginTop="4dp" />
     </LinearLayout>
 
-    <!-- 图表区域 -->
+    <!-- 30日K线图区域（次要显示，默认隐藏） -->
     <LinearLayout
         android:id="@+id/chart_panel"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
+        android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
         android:orientation="vertical"
         android:visibility="gone">
