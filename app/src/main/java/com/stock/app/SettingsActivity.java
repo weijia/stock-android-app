@@ -8,14 +8,18 @@ import android.text.TextUtils;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.stock.app.service.ServerDiscovery;
 import com.stock.app.service.StockService;
 import com.stock.app.util.ConfigManager;
 import com.stock.app.util.ExternalStorageManager;
 
 import org.json.JSONObject;
+
+import java.util.List;
 
 /**
  * 设置界面 Activity
@@ -28,6 +32,9 @@ public class SettingsActivity extends Activity {
     private Button btnSave;
     private Button btnTestConnection;
     private TextView tvTestResult;
+    private Button btnAutoDiscover;
+    private TextView tvDiscoveryStatus;
+    private LinearLayout discoveredServersPanel;
     private Button btnSelectStorage;
     private TextView tvStorageLocation;
 
@@ -35,6 +42,7 @@ public class SettingsActivity extends Activity {
     private ConfigManager configManager;
     private ExternalStorageManager externalStorageManager;
     private StockService stockService;
+    private ServerDiscovery serverDiscovery;
 
     public static void start(Activity activity) {
         Intent intent = new Intent(activity, SettingsActivity.class);
@@ -50,6 +58,7 @@ public class SettingsActivity extends Activity {
         configManager = new ConfigManager(this);
         externalStorageManager = new ExternalStorageManager(this);
         stockService = new StockService(configManager);
+        serverDiscovery = new ServerDiscovery(this);
 
         // 初始化 UI
         initViews();
@@ -67,6 +76,9 @@ public class SettingsActivity extends Activity {
         btnSave = findViewById(R.id.btn_save);
         btnTestConnection = findViewById(R.id.btn_test_connection);
         tvTestResult = findViewById(R.id.tv_test_result);
+        btnAutoDiscover = findViewById(R.id.btn_auto_discover);
+        tvDiscoveryStatus = findViewById(R.id.tv_discovery_status);
+        discoveredServersPanel = findViewById(R.id.discovered_servers_panel);
         
         // 外部存储相关 UI
         btnSelectStorage = findViewById(R.id.btn_select_storage);
@@ -98,6 +110,14 @@ public class SettingsActivity extends Activity {
                 testConnection();
             }
         });
+
+        // 自动发现按钮
+        btnAutoDiscover.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startAutoDiscovery();
+            }
+        });
         
         // 选择外部存储目录按钮
         if (btnSelectStorage != null) {
@@ -108,6 +128,77 @@ public class SettingsActivity extends Activity {
                 }
             });
         }
+    }
+
+    /**
+     * 开始自动发现服务器
+     */
+    private void startAutoDiscovery() {
+        tvDiscoveryStatus.setVisibility(View.VISIBLE);
+        tvDiscoveryStatus.setText(R.string.status_discovering);
+        tvDiscoveryStatus.setTextColor(Color.parseColor("#6c757d"));
+        
+        // 清空已发现服务器列表
+        discoveredServersPanel.removeAllViews();
+        
+        // 禁用按钮
+        btnAutoDiscover.setEnabled(false);
+        
+        // 开始发现
+        serverDiscovery.startDiscovery(30000, new ServerDiscovery.DiscoveryCallback() {
+            @Override
+            public void onServerFound(ServerDiscovery.DiscoveredServer server) {
+                // 添加服务器到列表
+                addDiscoveredServer(server);
+                
+                tvDiscoveryStatus.setText(getString(R.string.status_discovery_found, server.toString()));
+                tvDiscoveryStatus.setTextColor(Color.parseColor("#dc3545")); // 红色表示发现
+            }
+
+            @Override
+            public void onDiscoveryComplete(List<ServerDiscovery.DiscoveredServer> servers) {
+                btnAutoDiscover.setEnabled(true);
+                
+                if (servers.isEmpty()) {
+                    tvDiscoveryStatus.setText(R.string.status_discovery_timeout);
+                    tvDiscoveryStatus.setTextColor(Color.parseColor("#dc3545"));
+                } else {
+                    tvDiscoveryStatus.setText(getString(R.string.status_discovery_complete, servers.size()));
+                    tvDiscoveryStatus.setTextColor(Color.parseColor("#20c997"));
+                }
+            }
+
+            @Override
+            public void onError(String error) {
+                btnAutoDiscover.setEnabled(true);
+                tvDiscoveryStatus.setText(getString(R.string.status_discovery_failed, error));
+                tvDiscoveryStatus.setTextColor(Color.parseColor("#dc3545"));
+            }
+        });
+    }
+
+    /**
+     * 添加发现的服务器到 UI
+     */
+    private void addDiscoveredServer(ServerDiscovery.DiscoveredServer server) {
+        Button serverBtn = new Button(this);
+        serverBtn.setText(server.toString());
+        serverBtn.setBackgroundColor(Color.parseColor("#e9ecef"));
+        serverBtn.setTextColor(Color.parseColor("#212529"));
+        
+        serverBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // 选择这个服务器
+                etServerIp.setText(server.getAddress());
+                etServerPort.setText(String.valueOf(server.getHttpPort()));
+                
+                Toast.makeText(SettingsActivity.this, 
+                    "已选择服务器: " + server.toString(), Toast.LENGTH_SHORT).show();
+            }
+        });
+        
+        discoveredServersPanel.addView(serverBtn);
     }
 
     private void saveConfig() {
@@ -245,5 +336,6 @@ public class SettingsActivity extends Activity {
     protected void onDestroy() {
         super.onDestroy();
         stockService.shutdown();
+        serverDiscovery.shutdown();
     }
 }

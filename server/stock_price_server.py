@@ -2,12 +2,16 @@
 """
 股票行情 HTTP 服务器
 提供实时行情、K线、分时数据接口
+支持 UDP 广播自动发现
 """
 
 import json
 import logging
 import os
+import socket
 import sys
+import threading
+import time
 from datetime import datetime, timedelta
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -18,6 +22,14 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger("StockServer")
+
+# 服务发现配置
+DISCOVERY_PORT = 8081  # UDP 广播端口
+DISCOVERY_INTERVAL = 10  # 广播间隔（秒）
+DISCOVERY_MESSAGE = {
+    "service": "stock-server",
+    "http_port": 8080,
+}
 
 # 数据源配置
 DATA_SOURCE = os.getenv("DATA_SOURCE", "mootdx")  # mootdx 或 tushare
@@ -472,14 +484,88 @@ class StockPriceHandler(BaseHTTPRequestHandler):
         self._send_error(503, "分时数据不可用，需要安装 mootdx 并确保通达信服务器可访问")
 
 
+def get_local_ip():
+    """获取本机 IP 地址"""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
+
+class DiscoveryBroadcaster:
+    """UDP 广播服务发现
+    
+    定期广播服务器信息到局域网，让客户端自动发现
+    """
+    
+    def __init__(self, http_port=8080, instance_name=None):
+        self.http_port = http_port
+        self.instance_name = instance_name or socket.gethostname()
+        self._running = False
+        self._socket = None
+        self._thread = None
+    
+    def start(self):
+        if self._running:
+            return
+        
+        self._running = True
+        self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        
+        self._thread = threading.Thread(target=self._broadcast_loop, daemon=True)
+        self._thread.start()
+        logger.info(f"UDP 广播服务发现启动: 端口 {DISCOVERY_PORT}")
+    
+    def stop(self):
+        self._running = False
+        if self._socket:
+            self._socket.close()
+    
+    def _broadcast_loop(self):
+        """广播循环"""
+        while self._running:
+            try:
+                self._send_broadcast()
+            except Exception as e:
+                if self._running:
+                    logger.error(f"广播发送失败: {e}")
+            
+            time.sleep(DISCOVERY_INTERVAL)
+    
+    def _send_broadcast(self):
+        """发送广播消息"""
+        ip = get_local_ip()
+        msg = {
+            "service": "stock-server",
+            "instance": self.instance_name,
+            "http_port": self.http_port,
+            "address": ip,
+            "timestamp": int(time.time()),
+        }
+        
+        data = json.dumps(msg).encode("utf-8")
+        self._socket.sendto(data, ("255.255.255.255", DISCOVERY_PORT))
+        logger.debug(f"广播消息: {msg}")
+
+
 def main():
     """主函数"""
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", 8080))
     
+    # 启动 UDP 广播服务发现
+    discovery = DiscoveryBroadcaster(http_port=port)
+    discovery.start()
+    
     server = HTTPServer((host, port), StockPriceHandler)
     logger.info(f"股票行情服务器启动: http://{host}:{port}")
     logger.info(f"数据源: {DATA_SOURCE}")
+    logger.info(f"服务发现: UDP 广播端口 {DISCOVERY_PORT}")
     logger.info(f"接口列表:")
     logger.info("  - /api/health - 健康检查")
     logger.info("  - /api/realtime/<code> - 实时行情（示例：000001）")
@@ -490,6 +576,7 @@ def main():
         server.serve_forever()
     except KeyboardInterrupt:
         logger.info("服务器停止")
+        discovery.stop()
         server.shutdown()
 
 
