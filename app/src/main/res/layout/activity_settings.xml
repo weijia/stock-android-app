@@ -100,18 +100,36 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="通过 UDP 广播自动发现局域网中的服务器"
+            android:text="mDNS 发现（推荐）：不会被 Android 硬件过滤器阻止"
             android:textColor="@color/textSecondary"
             android:textSize="12sp" />
 
-        <!-- 自动发现按钮 -->
+        <!-- mDNS 发现按钮（推荐） -->
+        <Button
+            android:id="@+id/btn_auto_discover_mdns"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="mDNS 发现服务器（推荐）"
+            android:background="@color/colorPrimary"
+            android:textColor="@color/surface" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="UDP 广播发现（备选）：可能被 Android 硬件过滤器阻止"
+            android:textColor="@color/textSecondary"
+            android:textSize="12sp" />
+
+        <!-- UDP 广播发现按钮（备选） -->
         <Button
             android:id="@+id/btn_auto_discover"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/btn_auto_discover"
-            android:background="@color/colorPrimary"
+            android:layout_marginTop="8dp"
+            android:text="UDP 广播发现（备选）"
+            android:background="@color/textSecondary"
             android:textColor="@color/surface" />
 
         <!-- 发现状态 -->

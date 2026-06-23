@@ -2,7 +2,7 @@
 """
 股票行情 HTTP 服务器
 提供实时行情、K线、分时数据接口
-支持 UDP 广播自动发现
+支持 mDNS 服务发现（推荐）和 UDP 广播发现（备选）
 """
 
 import json
@@ -24,15 +24,22 @@ logging.basicConfig(
 logger = logging.getLogger("StockServer")
 
 # 服务发现配置
-DISCOVERY_PORT = 8081  # UDP 广播端口
+DISCOVERY_PORT = 8081  # UDP 广播端口（备选方案）
 DISCOVERY_INTERVAL = 10  # 广播间隔（秒）
-DISCOVERY_MESSAGE = {
-    "service": "stock-server",
-    "http_port": 8080,
-}
+MDNS_SERVICE_TYPE = "_stock-server._tcp.local."  # mDNS 服务类型
 
 # 数据源配置
 DATA_SOURCE = os.getenv("DATA_SOURCE", "mootdx")  # mootdx 或 tushare
+
+# mDNS 服务发现（推荐方案）
+try:
+    from zeroconf import ServiceInfo, Zeroconf
+    ZEROCONF_AVAILABLE = True
+    logger.info("zeroconf mDNS 服务发现可用")
+except ImportError:
+    ZEROCONF_AVAILABLE = False
+    logger.warning("zeroconf 未安装，使用 pip install zeroconf 安装")
+    logger.warning("mDNS 服务发现不可用，将使用 UDP 广播作为备选")
 
 # mootdx 数据源（通达信）
 try:
@@ -497,9 +504,10 @@ def get_local_ip():
 
 
 class DiscoveryBroadcaster:
-    """UDP 广播服务发现
+    """UDP 广播服务发现（备选方案）
     
     定期广播服务器信息到局域网，让客户端自动发现
+    注意：Android 硬件过滤器可能会阻止 UDP 广播，建议使用 mDNS
     """
     
     def __init__(self, http_port=8080, instance_name=None):
@@ -520,17 +528,17 @@ class DiscoveryBroadcaster:
         
         self._thread = threading.Thread(target=self._broadcast_loop, daemon=True)
         self._thread.start()
-        logger.info(f"[服务发现] UDP 广播启动")
-        logger.info(f"[服务发现] 广播端口: {DISCOVERY_PORT}")
-        logger.info(f"[服务发现] 广播间隔: {DISCOVERY_INTERVAL} 秒")
-        logger.info(f"[服务发现] 实例名称: {self.instance_name}")
-        logger.info(f"[服务发现] HTTP 端口: {self.http_port}")
+        logger.info(f"[服务发现-UDP] UDP 广播启动（备选方案）")
+        logger.info(f"[服务发现-UDP] 广播端口: {DISCOVERY_PORT}")
+        logger.info(f"[服务发现-UDP] 广播间隔: {DISCOVERY_INTERVAL} 秒")
+        logger.info(f"[服务发现-UDP] 实例名称: {self.instance_name}")
+        logger.info(f"[服务发现-UDP] HTTP 端口: {self.http_port}")
     
     def stop(self):
         self._running = False
         if self._socket:
             self._socket.close()
-        logger.info(f"[服务发现] UDP 广播停止，共发送 {self._broadcast_count} 次广播")
+        logger.info(f"[服务发现-UDP] UDP 广播停止，共发送 {self._broadcast_count} 次广播")
     
     def _broadcast_loop(self):
         """广播循环"""
@@ -539,7 +547,7 @@ class DiscoveryBroadcaster:
                 self._send_broadcast()
             except Exception as e:
                 if self._running:
-                    logger.error(f"[服务发现] 广播发送失败: {e}")
+                    logger.error(f"[服务发现-UDP] 广播发送失败: {e}")
             
             time.sleep(DISCOVERY_INTERVAL)
     
@@ -559,9 +567,80 @@ class DiscoveryBroadcaster:
         self._broadcast_count += 1
         
         # 详细调试日志
-        logger.info(f"[服务发现] 广播 #{self._broadcast_count} 已发送")
-        logger.info(f"[服务发现]   目标: 255.255.255.255:{DISCOVERY_PORT}")
-        logger.info(f"[服务发现]   内容: {json.dumps(msg, ensure_ascii=False)}")
+        logger.info(f"[服务发现-UDP] 广播 #{self._broadcast_count} 已发送")
+        logger.info(f"[服务发现-UDP]   目标: 255.255.255.255:{DISCOVERY_PORT}")
+        logger.info(f"[服务发现-UDP]   内容: {json.dumps(msg, ensure_ascii=False)}")
+
+
+class MDNSRegistrar:
+    """mDNS 服务发现（推荐方案）
+    
+    使用 zeroconf 注册 mDNS 服务，Android NSD API 可以发现
+    mDNS 不会被 Android 硬件过滤器阻止
+    """
+    
+    def __init__(self, http_port=8080, instance_name=None):
+        self.http_port = http_port
+        self.instance_name = instance_name or socket.gethostname()
+        self.zeroconf = None
+        self.service_info = None
+        self._registered = False
+    
+    def start(self):
+        if not ZEROCONF_AVAILABLE:
+            logger.warning("[服务发现-mDNS] zeroconf 未安装，mDNS 服务发现不可用")
+            return False
+        
+        try:
+            # 获取本机 IP
+            local_ip = get_local_ip()
+            
+            # 创建 zeroconf 实例
+            self.zeroconf = Zeroconf()
+            
+            # 创建服务信息
+            # 服务类型: _stock-server._tcp.local.
+            # 服务名称: Stock Server @ hostname._stock-server._tcp.local.
+            service_name = f"Stock Server @{self.instance_name}.{MDNS_SERVICE_TYPE}"
+            
+            self.service_info = ServiceInfo(
+                MDNS_SERVICE_TYPE,
+                service_name,
+                addresses=[socket.inet_aton(local_ip)],
+                port=self.http_port,
+                properties={
+                    "version": "1.0",
+                    "http_port": str(self.http_port),
+                    "instance": self.instance_name,
+                },
+                server=f"{self.instance_name}.local.",
+            )
+            
+            # 注册服务
+            self.zeroconf.register_service(self.service_info)
+            self._registered = True
+            
+            logger.info(f"[服务发现-mDNS] mDNS 服务已注册（推荐方案）")
+            logger.info(f"[服务发现-mDNS] 服务类型: {MDNS_SERVICE_TYPE}")
+            logger.info(f"[服务发现-mDNS] 服务名称: {service_name}")
+            logger.info(f"[服务发现-mDNS] 地址: {local_ip}:{self.http_port}")
+            logger.info(f"[服务发现-mDNS] Android NSD 可发现此服务")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"[服务发现-mDNS] 注册失败: {e}")
+            return False
+    
+    def stop(self):
+        if self._registered and self.zeroconf:
+            try:
+                self.zeroconf.unregister_service(self.service_info)
+                self.zeroconf.close()
+                logger.info("[服务发现-mDNS] mDNS 服务已注销")
+            except Exception as e:
+                logger.error(f"[服务发现-mDNS] 注销失败: {e}")
+        self._registered = False
 
 
 def main():
@@ -572,9 +651,17 @@ def main():
     # 获取本机 IP 地址
     local_ip = get_local_ip()
     
-    # 启动 UDP 广播服务发现
-    discovery = DiscoveryBroadcaster(http_port=port)
-    discovery.start()
+    # 启动 mDNS 服务发现（推荐方案）
+    mdns_registrar = MDNSRegistrar(http_port=port)
+    mdns_started = mdns_registrar.start()
+    
+    # 如果 mDNS 不可用，启动 UDP 广播作为备选
+    if not mdns_started:
+        logger.info("[服务发现] mDNS 不可用，启用 UDP 广播作为备选")
+        discovery = DiscoveryBroadcaster(http_port=port)
+        discovery.start()
+    else:
+        discovery = None
     
     server = HTTPServer((host, port), StockPriceHandler)
     logger.info(f"股票行情服务器启动")
@@ -582,7 +669,13 @@ def main():
     logger.info(f"  HTTP 端口: {port}")
     logger.info(f"  访问地址: http://{local_ip}:{port}")
     logger.info(f"数据源: {DATA_SOURCE}")
-    logger.info(f"服务发现: UDP 广播端口 {DISCOVERY_PORT}")
+    
+    if mdns_started:
+        logger.info(f"服务发现: mDNS ({MDNS_SERVICE_TYPE})")
+        logger.info(f"  Android 使用 NSD API 搜索服务类型: _stock-server._tcp")
+    else:
+        logger.info(f"服务发现: UDP 广播端口 {DISCOVERY_PORT}")
+    
     logger.info(f"接口列表:")
     logger.info("  - /api/health - 健康检查")
     logger.info("  - /api/realtime/<code> - 实时行情（示例：000001）")
@@ -593,7 +686,9 @@ def main():
         server.serve_forever()
     except KeyboardInterrupt:
         logger.info("服务器停止")
-        discovery.stop()
+        mdns_registrar.stop()
+        if discovery:
+            discovery.stop()
         server.shutdown()
 
 
