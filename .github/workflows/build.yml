@@ -59,6 +59,7 @@ jobs:
         fi
 
     - name: Build Release APK
+      if: env.KEYSTORE_PATH != ''
       env:
         KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
         KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -66,7 +67,7 @@ jobs:
         KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       run: gradle assembleRelease
 
-    - name: Build Debug APK (fallback)
+    - name: Build Debug APK
       if: env.KEYSTORE_PATH == ''
       run: gradle assembleDebug
 
