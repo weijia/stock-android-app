@@ -152,7 +152,18 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
             config.put("server_port", configManager.getServerPort());
             config.put("last_code", configManager.getLastCode());
             
-            externalStorageManager.saveConfig(config);
+            ExternalStorageManager.SaveResult result = externalStorageManager.saveConfig(config);
+            
+            if (!result.isExternalStorageSuccess()) {
+                // 外部存储失败，记录日志
+                android.util.Log.w("MainActivity", "外部存储保存失败，配置仅保存到应用内部");
+                if (result.safError != null) {
+                    android.util.Log.e("MainActivity", "SAF 错误: " + result.safError);
+                }
+                if (result.externalError != null) {
+                    android.util.Log.e("MainActivity", "外部存储错误: " + result.externalError);
+                }
+            }
         } catch (Exception e) {
             Toast.makeText(this, "保存配置失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }

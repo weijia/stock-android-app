@@ -416,17 +416,30 @@ public class SettingsActivity extends Activity {
             config.put("server_port", port);
             config.put("last_code", configManager.getLastCode());
             
-            externalStorageManager.saveConfig(config);
+            ExternalStorageManager.SaveResult result = externalStorageManager.saveConfig(config);
             
-            // 验证文件是否真的写入成功
-            JSONObject loaded = externalStorageManager.loadConfig();
-            if (loaded != null && loaded.length() > 0) {
-                return true;
+            // 显示详细结果
+            if (result.safSuccess) {
+                Toast.makeText(this, "配置已保存到 SAF 目录", Toast.LENGTH_SHORT).show();
+            } else if (result.externalSuccess) {
+                Toast.makeText(this, "配置已保存到: " + result.externalLocation, Toast.LENGTH_LONG).show();
             } else {
-                return false;
+                // SAF 和外部存储都失败
+                String errorMsg = "外部存储保存失败";
+                if (result.safError != null) {
+                    errorMsg += " (SAF: " + result.safError + ")";
+                }
+                if (result.externalError != null) {
+                    errorMsg += " (外部存储: " + result.externalError + ")";
+                }
+                Toast.makeText(this, errorMsg, Toast.LENGTH_LONG).show();
+                android.util.Log.e("SettingsActivity", errorMsg);
             }
+            
+            return result.isExternalStorageSuccess();
         } catch (Exception e) {
             android.util.Log.e("SettingsActivity", "保存到外部存储失败: " + e.getMessage());
+            Toast.makeText(this, "保存失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
             return false;
         }
     }

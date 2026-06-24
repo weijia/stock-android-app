@@ -176,16 +176,22 @@ public class ExternalStorageManager {
     /**
      * 保存配置
      * 同时保存到 SAF、外部存储和 SharedPreferences
+     * 
+     * @return 保存结果：SAF成功、外部存储成功、或仅SharedPreferences成功
      */
-    public void saveConfig(JSONObject config) {
+    public SaveResult saveConfig(JSONObject config) {
         String content = config.toString();
+        SaveResult result = new SaveResult();
         
         // 1. 保存到 SAF
         if (safAvailable && safDirUri != null) {
             try {
                 saveToSaf(content);
+                result.safSuccess = true;
+                result.safLocation = safDirUri.toString();
                 Log.i(TAG, "保存到 SAF 成功");
             } catch (Exception e) {
+                result.safError = e.getMessage();
                 Log.e(TAG, "保存到 SAF 失败: " + e.getMessage());
             }
         }
@@ -193,14 +199,58 @@ public class ExternalStorageManager {
         // 2. 保存到外部存储（Android 4.0-4.3 或备份）
         try {
             saveToExternalStorage(content);
+            result.externalSuccess = true;
+            File configDir = getLegacyConfigDir();
+            if (configDir != null) {
+                result.externalLocation = new File(configDir, CONFIG_FILE_NAME).getAbsolutePath();
+            }
             Log.i(TAG, "保存到外部存储成功");
         } catch (Exception e) {
+            result.externalError = e.getMessage();
             Log.e(TAG, "保存到外部存储失败: " + e.getMessage());
         }
         
         // 3. 保存到 SharedPreferences（备份）
         prefs.edit().putString(KEY_CONFIG, content).apply();
+        result.sharedPrefsSuccess = true;
         Log.i(TAG, "保存到 SharedPreferences 成功");
+        
+        return result;
+    }
+    
+    /**
+     * 保存结果类
+     */
+    public static class SaveResult {
+        public boolean safSuccess = false;
+        public String safLocation = null;
+        public String safError = null;
+        
+        public boolean externalSuccess = false;
+        public String externalLocation = null;
+        public String externalError = null;
+        
+        public boolean sharedPrefsSuccess = false;
+        
+        /**
+         * 是否有任何外部存储成功
+         */
+        public boolean isExternalStorageSuccess() {
+            return safSuccess || externalSuccess;
+        }
+        
+        /**
+         * 获取成功保存的位置描述
+         */
+        public String getSuccessLocation() {
+            if (safSuccess && safLocation != null) {
+                return "SAF: " + safLocation;
+            }
+            if (externalSuccess && externalLocation != null) {
+                return externalLocation;
+            }
+            return "应用内部存储";
+        }
     }
     
     // ============ SAF 操作 ============
