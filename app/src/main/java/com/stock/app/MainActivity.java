@@ -11,11 +11,14 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
 
 import com.stock.app.model.IntradayData;
 import com.stock.app.model.KLineData;
 import com.stock.app.model.StockData;
+import com.stock.app.service.AutoConnectManager;
+import com.stock.app.service.MDNSDiscovery;
 import com.stock.app.service.RefreshScheduler;
 import com.stock.app.service.StockService;
 import com.stock.app.util.ConfigManager;
@@ -32,7 +35,7 @@ import java.util.List;
 /**
  * 主界面 Activity
  */
-public class MainActivity extends Activity implements RefreshScheduler.RefreshCallback {
+public class MainActivity extends Activity implements RefreshScheduler.RefreshCallback, AutoConnectManager.AutoConnectCallback {
 
     // UI 组件
     private EditText etStockCode;
@@ -64,9 +67,13 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
     private ExternalStorageManager externalStorageManager;
     private StockService stockService;
     private RefreshScheduler refreshScheduler;
+    private AutoConnectManager autoConnectManager;
 
     // 当前股票代码
     private String currentCode = "";
+    
+    // 是否已完成自动连接
+    private boolean autoConnectCompleted = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -83,6 +90,8 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         configManager = new ConfigManager(this);
         stockService = new StockService(configManager);
         refreshScheduler = new RefreshScheduler(stockService);
+        autoConnectManager = new AutoConnectManager(this, configManager, stockService);
+        autoConnectManager.setCallback(this);
 
         // 初始化 UI
         initViews();
@@ -90,14 +99,23 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         // 设置按钮点击事件
         setupClickListeners();
 
-        // 检查服务器连接状态
-        checkServerStatus();
-
         // 恢复上次查询的股票代码
         String lastCode = configManager.getLastCode();
         if (!TextUtils.isEmpty(lastCode)) {
             etStockCode.setText(lastCode);
         }
+        
+        // 开始自动连接
+        startAutoConnect();
+    }
+    
+    /**
+     * 开始自动连接流程
+     */
+    private void startAutoConnect() {
+        tvStatus.setText("正在连接服务器...");
+        tvStatus.setTextColor(Color.parseColor("#0d6efd"));
+        autoConnectManager.startAutoConnect();
     }
     
     /**
@@ -118,9 +136,6 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
                 if (!TextUtils.isEmpty(lastCode)) {
                     configManager.setLastCode(lastCode);
                 }
-                
-                Toast.makeText(this, "配置已恢复: " + externalStorageManager.getStorageLocation(), 
-                    Toast.LENGTH_SHORT).show();
             }
         } catch (Exception e) {
             Toast.makeText(this, "加载配置失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
@@ -232,6 +247,27 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         
         // 获取分时数据
         fetchIntradayData(code);
+    }
+    
+    /**
+     * 自动查询上次保存的股票
+     */
+    private void autoQueryLastStock() {
+        String lastCode = configManager.getLastCode();
+        if (!TextUtils.isEmpty(lastCode) && FormatUtil.isValidStockCode(lastCode)) {
+            etStockCode.setText(lastCode);
+            currentCode = lastCode;
+            
+            // 停止之前的刷新
+            refreshScheduler.stop();
+            
+            // 获取数据
+            fetchRealtimeData(lastCode);
+            fetchKlineData(lastCode);
+            fetchIntradayData(lastCode);
+            
+            Toast.makeText(this, "已自动查询上次股票: " + lastCode, Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void fetchRealtimeData(String code) {
@@ -349,11 +385,72 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         Toast.makeText(this, error, Toast.LENGTH_SHORT).show();
     }
 
+    // AutoConnectManager.AutoConnectCallback 实现
+
+    @Override
+    public void onConnected(String serverIp, int serverPort) {
+        tvStatus.setText(R.string.status_connected);
+        tvStatus.setTextColor(Color.parseColor("#20c997"));
+        autoConnectCompleted = true;
+        
+        // 保存服务器配置
+        configManager.setServerIp(serverIp);
+        configManager.setServerPort(serverPort);
+        saveConfigToExternalStorage();
+        
+        Toast.makeText(this, "已连接到服务器: " + serverIp, Toast.LENGTH_SHORT).show();
+        
+        // 自动查询上次股票
+        autoQueryLastStock();
+    }
+
+    @Override
+    public void onNeedSelectServer(List<MDNSDiscovery.DiscoveredServer> servers) {
+        // 显示服务器选择对话框
+        showServerSelectionDialog(servers);
+    }
+
+    @Override
+    public void onConnectionFailed(String error) {
+        tvStatus.setText(R.string.status_disconnected);
+        tvStatus.setTextColor(Color.parseColor("#dc3545"));
+        autoConnectCompleted = true;
+        
+        Toast.makeText(this, error, Toast.LENGTH_LONG).show();
+    }
+
+    @Override
+    public void onProgressUpdate(String message) {
+        tvStatus.setText(message);
+    }
+
+    /**
+     * 显示服务器选择对话框
+     */
+    private void showServerSelectionDialog(List<MDNSDiscovery.DiscoveredServer> servers) {
+        String[] serverNames = new String[servers.size()];
+        for (int i = 0; i < servers.size(); i++) {
+            MDNSDiscovery.DiscoveredServer server = servers.get(i);
+            serverNames[i] = server.getHost() + ":" + server.getPort();
+        }
+        
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("选择服务器");
+        builder.setItems(serverNames, (dialog, which) -> {
+            MDNSDiscovery.DiscoveredServer selectedServer = servers.get(which);
+            autoConnectManager.connectToServer(selectedServer);
+        });
+        builder.setCancelable(false);
+        builder.show();
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
-        // 重新检查服务器状态
-        checkServerStatus();
+        // 只有在自动连接已完成的情况下才重新检查服务器状态
+        if (autoConnectCompleted) {
+            checkServerStatus();
+        }
     }
 
     @Override
@@ -366,6 +463,7 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         // 停止刷新并释放资源
         refreshScheduler.stop();
         stockService.shutdown();
+        autoConnectManager.shutdown();
     }
     
     @Override
