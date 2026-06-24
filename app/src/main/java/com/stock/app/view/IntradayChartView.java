@@ -365,14 +365,17 @@ public class IntradayChartView extends View {
             if (minuteIndex < 0) continue;
             
             Paint barPaint;
-            // 中国股市习惯：涨红跌绿
-            // 价格上涨（买入主导）-> 红色
-            // 价格下跌（卖出主导）-> 绿色
-            if (p.getPrice() >= preClose) {
-                barPaint = new Paint(downPaint);  // 红色（上涨/买入）
+            // 分时图成交量柱颜色规则：根据价格变化方向
+            // 红色：当前分钟价格 > 上一分钟价格（价格上涨）
+            // 绿色：当前分钟价格 < 上一分钟价格（价格下跌）
+            double currentPrice = p.getPrice();
+            double prevPrice = (i > 0) ? points.get(i - 1).getPrice() : preClose;
+            
+            if (currentPrice >= prevPrice) {
+                barPaint = new Paint(downPaint);  // 红色（价格上涨）
                 barPaint.setAlpha(180);
             } else {
-                barPaint = new Paint(upPaint);  // 绿色（下跌/卖出）
+                barPaint = new Paint(upPaint);  // 绿色（价格下跌）
                 barPaint.setAlpha(180);
             }
 
