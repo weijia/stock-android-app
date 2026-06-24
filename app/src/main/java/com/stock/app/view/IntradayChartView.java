@@ -285,7 +285,8 @@ public class IntradayChartView extends View {
         fillPath.close();
 
         double lastPrice = points.get(points.size() - 1).getPrice();
-        Paint fillPaint = lastPrice >= preClose ? upPaint : downPaint;
+        // 中国股市习惯：涨红跌绿
+        Paint fillPaint = lastPrice >= preClose ? downPaint : upPaint;  // 涨红跌绿
 
         canvas.drawPath(fillPath, fillPaint);
         canvas.drawPath(pricePath, pricePaint);
@@ -364,11 +365,14 @@ public class IntradayChartView extends View {
             if (minuteIndex < 0) continue;
             
             Paint barPaint;
+            // 中国股市习惯：涨红跌绿
+            // 价格上涨（买入主导）-> 红色
+            // 价格下跌（卖出主导）-> 绿色
             if (p.getPrice() >= preClose) {
-                barPaint = new Paint(upPaint);
+                barPaint = new Paint(downPaint);  // 红色（上涨/买入）
                 barPaint.setAlpha(180);
             } else {
-                barPaint = new Paint(downPaint);
+                barPaint = new Paint(upPaint);  // 绿色（下跌/卖出）
                 barPaint.setAlpha(180);
             }
 
