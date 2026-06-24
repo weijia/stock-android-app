@@ -120,24 +120,161 @@ def _df_to_records(df):
 
 
 class MootdxProvider:
-    """mootdx 数据源"""
+    """mootdx 数据源 - 优先使用通达信原生接口"""
     
     def __init__(self):
         self.client = Quotes.factory(market='std')
     
     def fetch_realtime(self, code):
-        """获取实时行情
+        """获取实时行情 - 优先使用通达信接口
         
-        API: client.quotes(symbol=["000001"])
+        策略：
+        1. 优先：从分时数据获取最新价格（通达信原生）
+        2. 备选：从最新日K线获取（通达信原生）
+        3. 最后：使用 quotes 接口（腾讯数据，字段更丰富）
         """
         try:
-            # 使用 quotes 获取实时行情
+            # 方法1：从当天分时数据获取最新价格（通达信原生）
+            realtime_data = self._fetch_realtime_from_minutes(code)
+            if realtime_data:
+                logger.info(f"通达信分时接口成功获取 {code}")
+                return realtime_data
+            
+            # 方法2：从最新日K线获取（通达信原生）
+            realtime_data = self._fetch_realtime_from_bars(code)
+            if realtime_data:
+                logger.info(f"通达信K线接口成功获取 {code}")
+                return realtime_data
+            
+            # 方法3：使用 quotes 接口（腾讯数据，备选）
+            logger.info(f"通达信接口无数据，尝试腾讯接口获取 {code}")
+            realtime_data = self._fetch_realtime_from_quotes(code)
+            if realtime_data:
+                logger.info(f"腾讯批量接口成功获取 {code}")
+                return realtime_data
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"实时行情获取失败: {e}")
+            return None
+    
+    def _fetch_realtime_from_minutes(self, code):
+        """从分时数据获取实时行情（通达信原生）"""
+        try:
+            today = datetime.now().strftime('%Y%m%d')
+            df = self.client.minutes(symbol=code, date=today)
+            
+            if df is None or df.empty:
+                return None
+            
+            # 获取最新一条分时数据
+            last_row = df.iloc[-1]
+            current_price = float(last_row.get('price', 0))
+            
+            if current_price <= 0:
+                return None
+            
+            # 获取第一条数据作为开盘价
+            first_row = df.iloc[0]
+            open_price = float(first_row.get('price', 0))
+            
+            # 计算最高最低价
+            high_price = float(df['price'].max())
+            low_price = float(df['price'].min())
+            
+            # 计算成交量和成交额
+            total_volume = float(df['volume'].sum() if 'volume' in df.columns else df['vol'].sum())
+            # 成交额需要计算
+            total_amount = 0
+            for _, row in df.iterrows():
+                price = float(row.get('price', 0))
+                vol = float(row.get('volume', 0) or row.get('vol', 0))
+                total_amount += price * vol
+            
+            # 获取昨收价（从上一交易日K线）
+            prev_close = self._get_prev_close(code)
+            
+            data = {
+                'name': '',  # 分时数据没有股票名称
+                'price': current_price,
+                'last_close': prev_close,
+                'open': open_price,
+                'high': high_price,
+                'low': low_price,
+                'volume': total_volume,  # 股数
+                'amount': total_amount,  # 元
+            }
+            
+            # 计算涨跌幅
+            if data['last_close'] > 0:
+                data['change_amt'] = data['price'] - data['last_close']
+                data['change_pct'] = (data['change_amt'] / data['last_close']) * 100
+            else:
+                data['change_amt'] = 0
+                data['change_pct'] = 0
+            
+            return data
+            
+        except Exception as e:
+            logger.debug(f"分时数据获取失败: {e}")
+            return None
+    
+    def _fetch_realtime_from_bars(self, code):
+        """从日K线获取最新行情（通达信原生）"""
+        try:
+            # 获取最近2根日K线
+            df = self.client.bars(symbol=code, frequency=9, offset=2)
+            
+            if df is None or df.empty or len(df) < 1:
+                return None
+            
+            # 最新一根K线
+            last_row = df.iloc[-1]
+            
+            data = {
+                'name': '',
+                'price': float(last_row.get('close', 0)),
+                'last_close': float(df.iloc[-2].get('close', 0)) if len(df) > 1 else 0,
+                'open': float(last_row.get('open', 0)),
+                'high': float(last_row.get('high', 0)),
+                'low': float(last_row.get('low', 0)),
+                'volume': float(last_row.get('volume', 0) or last_row.get('vol', 0)),
+                'amount': float(last_row.get('amount', 0) or 0),
+            }
+            
+            # 计算涨跌幅
+            if data['last_close'] > 0:
+                data['change_amt'] = data['price'] - data['last_close']
+                data['change_pct'] = (data['change_amt'] / data['last_close']) * 100
+            else:
+                data['change_amt'] = 0
+                data['change_pct'] = 0
+            
+            return data
+            
+        except Exception as e:
+            logger.debug(f"K线数据获取失败: {e}")
+            return None
+    
+    def _get_prev_close(self, code):
+        """获取昨收价"""
+        try:
+            df = self.client.bars(symbol=code, frequency=9, offset=2)
+            if df is not None and len(df) >= 2:
+                return float(df.iloc[-2].get('close', 0))
+        except:
+            pass
+        return 0
+    
+    def _fetch_realtime_from_quotes(self, code):
+        """从 quotes 接口获取实时行情（腾讯数据，备选）"""
+        try:
             df = self.client.quotes(symbol=[code])
             
             if df is None or df.empty:
                 return None
             
-            # 标准化数据
             row = df.iloc[0]
             data = {
                 'name': row.get('name', ''),
@@ -150,7 +287,6 @@ class MootdxProvider:
                 'amount': float(row.get('amount', 0)),
             }
             
-            # 计算涨跌幅
             if data['last_close'] > 0:
                 data['change_amt'] = data['price'] - data['last_close']
                 data['change_pct'] = (data['change_amt'] / data['last_close']) * 100
@@ -159,8 +295,9 @@ class MootdxProvider:
                 data['change_pct'] = 0
             
             return data
+            
         except Exception as e:
-            logger.error(f"mootdx 实时行情获取失败: {e}")
+            logger.error(f"腾讯接口获取失败: {e}")
             return None
     
     def fetch_kline(self, code, days=30):
