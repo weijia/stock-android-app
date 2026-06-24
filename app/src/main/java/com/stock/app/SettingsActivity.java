@@ -393,19 +393,23 @@ public class SettingsActivity extends Activity {
         // 保存配置到 SharedPreferences
         configManager.saveServerConfig(ip, port);
         
-        // 同时保存到外部存储
-        saveToExternalStorage(ip, port);
-
-        Toast.makeText(this, "配置已保存", Toast.LENGTH_SHORT).show();
+        // 同时保存到外部存储，并检查结果
+        boolean externalSaved = saveToExternalStorageWithResult(ip, port);
+        
+        if (externalSaved) {
+            Toast.makeText(this, "配置已保存到外部存储", Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "配置已保存到应用内部（外部存储不可用）", Toast.LENGTH_LONG).show();
+        }
 
         // 返回主界面
         finish();
     }
     
     /**
-     * 保存配置到外部存储
+     * 保存配置到外部存储，返回是否成功
      */
-    private void saveToExternalStorage(String ip, int port) {
+    private boolean saveToExternalStorageWithResult(String ip, int port) {
         try {
             JSONObject config = new JSONObject();
             config.put("server_ip", ip);
@@ -413,8 +417,17 @@ public class SettingsActivity extends Activity {
             config.put("last_code", configManager.getLastCode());
             
             externalStorageManager.saveConfig(config);
+            
+            // 验证文件是否真的写入成功
+            JSONObject loaded = externalStorageManager.loadConfig();
+            if (loaded != null && loaded.length() > 0) {
+                return true;
+            } else {
+                return false;
+            }
         } catch (Exception e) {
-            Toast.makeText(this, "保存到外部存储失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            android.util.Log.e("SettingsActivity", "保存到外部存储失败: " + e.getMessage());
+            return false;
         }
     }
 
@@ -492,12 +505,26 @@ public class SettingsActivity extends Activity {
         
         // 处理 SAF 目录选择结果
         if (externalStorageManager.handleSafResult(requestCode, resultCode, data)) {
-            Toast.makeText(this, "已选择外部存储目录，配置卸载后保留", Toast.LENGTH_SHORT).show();
             updateStorageLocation();
             
-            // 立即保存当前配置到新目录
-            saveToExternalStorage(etServerIp.getText().toString().trim(), 
-                Integer.parseInt(etServerPort.getText().toString().trim()));
+            // 立即保存当前配置到新目录并验证
+            String ip = etServerIp.getText().toString().trim();
+            String portStr = etServerPort.getText().toString().trim();
+            int port = 8080;
+            if (!TextUtils.isEmpty(portStr)) {
+                try {
+                    port = Integer.parseInt(portStr);
+                } catch (NumberFormatException e) {
+                    port = 8080;
+                }
+            }
+            
+            boolean saved = saveToExternalStorageWithResult(ip, port);
+            if (saved) {
+                Toast.makeText(this, "已选择外部存储目录，配置已保存", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "已选择目录，但保存失败，请检查目录权限", Toast.LENGTH_LONG).show();
+            }
         }
     }
 

@@ -257,11 +257,15 @@ public class ExternalStorageManager {
     private void saveToSaf(String content) throws Exception {
         if (safDirUri == null) throw new Exception("SAF 目录未设置");
         
+        Log.i(TAG, "开始保存到 SAF，目录 URI: " + safDirUri);
+        
         ContentResolver resolver = context.getContentResolver();
         
         // 查找并删除旧文件
         Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
             safDirUri, DocumentsContract.getTreeDocumentId(safDirUri));
+        
+        Log.i(TAG, "查询现有文件，childrenUri: " + childrenUri);
         
         Cursor cursor = resolver.query(childrenUri,
             new String[]{DocumentsContract.Document.COLUMN_DOCUMENT_ID, 
@@ -270,33 +274,53 @@ public class ExternalStorageManager {
         
         Uri existingFileUri = null;
         if (cursor != null) {
+            Log.i(TAG, "Cursor 返回 " + cursor.getCount() + " 行");
             while (cursor.moveToNext()) {
                 String name = cursor.getString(1);
+                Log.i(TAG, "发现文件: " + name);
                 if (name.equals(CONFIG_FILE_NAME)) {
                     String docId = cursor.getString(0);
                     existingFileUri = DocumentsContract.buildDocumentUriUsingTree(safDirUri, docId);
+                    Log.i(TAG, "找到现有配置文件: " + existingFileUri);
                     break;
                 }
             }
             cursor.close();
+        } else {
+            Log.w(TAG, "Cursor 为空，无法查询目录内容");
         }
         
         if (existingFileUri != null) {
-            DocumentsContract.deleteDocument(resolver, existingFileUri);
+            Log.i(TAG, "删除现有文件...");
+            boolean deleted = DocumentsContract.deleteDocument(resolver, existingFileUri);
+            Log.i(TAG, "删除结果: " + deleted);
         }
         
         // 创建新文件
+        Log.i(TAG, "创建新配置文件...");
         Uri newFileUri = DocumentsContract.createDocument(
             resolver, safDirUri, "application/json", CONFIG_FILE_NAME);
         
-        if (newFileUri == null) throw new Exception("创建文件失败");
+        if (newFileUri == null) {
+            Log.e(TAG, "创建文件失败，newFileUri 为空");
+            throw new Exception("创建文件失败");
+        }
+        
+        Log.i(TAG, "新文件 URI: " + newFileUri);
         
         // 写入内容
         OutputStream os = resolver.openOutputStream(newFileUri);
-        if (os == null) throw new Exception("打开输出流失败");
+        if (os == null) {
+            Log.e(TAG, "打开输出流失败");
+            throw new Exception("打开输出流失败");
+        }
         
+        Log.i(TAG, "写入内容，长度: " + content.length());
         os.write(content.getBytes("UTF-8"));
+        os.flush();
         os.close();
+        
+        Log.i(TAG, "保存到 SAF 成功");
     }
     
     // ============ 外部存储操作（Android 4.0-4.3） ============
