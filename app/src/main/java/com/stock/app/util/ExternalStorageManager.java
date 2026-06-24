@@ -22,6 +22,9 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.util.List;
+
+import android.content.UriPermission;
 
 /**
  * 外部存储配置管理器
@@ -132,12 +135,35 @@ public class ExternalStorageManager {
     public void restoreSafDirectory() {
         String uriString = prefs.getString(KEY_SAF_URI, null);
         if (uriString == null || uriString.isEmpty()) {
+            Log.i(TAG, "没有保存的 SAF 目录 URI");
             return;
         }
         
         try {
             safDirUri = Uri.parse(uriString);
-            Log.i(TAG, "SAF 目录已恢复: " + uriString);
+            Log.i(TAG, "SAF 目录 URI 已解析: " + uriString);
+            
+            // 检查权限是否仍然有效
+            ContentResolver resolver = context.getContentResolver();
+            List<UriPermission> permissions = resolver.getPersistedUriPermissions();
+            boolean hasPermission = false;
+            
+            for (UriPermission perm : permissions) {
+                Log.i(TAG, "已有权限: " + perm.getUri() + " (读: " + perm.isReadPermission() + ", 写: " + perm.isWritePermission() + ")");
+                if (perm.getUri().toString().equals(uriString) || 
+                    perm.getUri().toString().startsWith(uriString)) {
+                    hasPermission = true;
+                    break;
+                }
+            }
+            
+            if (!hasPermission) {
+                Log.e(TAG, "SAF 目录权限已丢失，需要重新选择目录");
+                safDirUri = null;
+                prefs.edit().remove(KEY_SAF_URI).apply();
+            } else {
+                Log.i(TAG, "SAF 目录权限有效，已恢复: " + uriString);
+            }
         } catch (Exception e) {
             Log.e(TAG, "恢复 SAF 目录失败: " + e.getMessage());
             safDirUri = null;
