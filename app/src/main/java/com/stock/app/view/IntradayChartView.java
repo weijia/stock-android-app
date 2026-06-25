@@ -34,13 +34,10 @@ public class IntradayChartView extends View {
     private Paint volumePaint;
     private Paint volumeTextPaint;
 
-    private float paddingLeft = 50f;   // 左侧留空间给价格标签
-    private float paddingRight = 50f;  // 右侧留空间给成交量标签
-    private float paddingTop = 30f;
+    private float paddingLeft = 55f;   // 左侧留空间给价格标签
+    private float paddingRight = 55f;  // 右侧留空间给成交量标签
+    private float paddingTop = 25f;
     private float paddingBottom = 25f;
-    
-    // 成交量柱高度比例（占图表高度的20%）
-    private float volumeHeightRatio = 0.20f;
     
     // 固定时间范围（分钟数）
     private static final int MORNING_MINUTES = 120;
@@ -189,6 +186,7 @@ public class IntradayChartView extends View {
 
     /**
      * 在同一个坐标系中绘制价格线和成交量柱
+     * 单Y轴刻度：同一Y坐标范围，左侧价格标签，右侧成交量标签
      */
     private void drawCombinedChart(Canvas canvas, float chartWidth, float chartHeight) {
         List<IntradayPoint> points = data.getData();
@@ -211,16 +209,13 @@ public class IntradayChartView extends View {
 
         double priceRange = priceTop - priceBottom;
 
-        // 绘制网格线和价格标签（左侧Y轴）
-        drawPriceGridAndLabels(canvas, chartWidth, chartHeight, preClose, priceTop, priceBottom);
+        // 绘制共享的网格线和Y轴标签
+        drawSharedGridAndLabels(canvas, chartWidth, chartHeight, preClose, priceTop, priceBottom, maxVolume);
 
-        // 绘制成交量标签（右侧Y轴）
-        drawVolumeLabels(canvas, chartHeight, maxVolume);
-
-        // 绘制成交量柱（在底部，使用同一X轴）
+        // 绘制成交量柱（从底部向上，按比例映射到整个图表高度）
         drawVolumeBars(canvas, chartWidth, chartHeight, points, maxVolume, preClose);
 
-        // 绘制价格线（在上部，使用同一X轴）
+        // 绘制价格线（按比例映射到整个图表高度）
         drawPriceLine(canvas, chartWidth, chartHeight, points, preClose, priceTop, priceBottom);
         
         // 绘制均价线
@@ -230,48 +225,55 @@ public class IntradayChartView extends View {
         drawCurrentPriceLine(canvas, chartWidth, chartHeight, points, preClose, priceTop, priceBottom);
     }
 
-    private void drawPriceGridAndLabels(Canvas canvas, float chartWidth, float chartHeight,
-                                        double preClose, double priceTop, double priceBottom) {
-        // 绘制水平网格线
+    /**
+     * 绘制共享的网格线和Y轴标签
+     * 单Y轴刻度线，左侧价格标签，右侧成交量标签
+     */
+    private void drawSharedGridAndLabels(Canvas canvas, float chartWidth, float chartHeight,
+                                         double preClose, double priceTop, double priceBottom, double maxVolume) {
+        int width = getWidth();
+        
+        // 绘制水平网格线（5条线：0%, 25%, 50%, 75%, 100%）
         for (int i = 0; i <= 4; i++) {
             float y = paddingTop + (chartHeight / 4) * i;
             canvas.drawLine(paddingLeft, y, paddingLeft + chartWidth, y, gridPaint);
         }
 
+        // 昨收基准线（中间位置）
+        float baseY = paddingTop + chartHeight / 2;
+        canvas.drawLine(paddingLeft, baseY, paddingLeft + chartWidth, baseY, baseLinePaint);
+
         // 左侧Y轴：价格标签
         textPaint.setTextAlign(Paint.Align.LEFT);
         
+        // 价格映射：顶部=priceTop, 中间=preClose, 底部=priceBottom
         String topPrice = String.format("%.2f", priceTop);
-        canvas.drawText(topPrice, 5f, paddingTop + textPaint.getTextSize(), textPaint);
+        canvas.drawText(topPrice, 3f, paddingTop + 5f, textPaint);
+        
+        double topChangePct = (priceTop - preClose) / preClose * 100;
+        String topChange = String.format("+%.2f%%", topChangePct);
+        canvas.drawText(topChange, 3f, paddingTop + chartHeight * 0.25f, textPaint);
         
         String midPrice = String.format("%.2f", preClose);
-        canvas.drawText(midPrice, 5f, paddingTop + chartHeight / 2 + textPaint.getTextSize()/2, textPaint);
+        canvas.drawText(midPrice, 3f, baseY + 5f, textPaint);
+        
+        double bottomChangePct = (priceBottom - preClose) / preClose * 100;
+        String bottomChange = String.format("%.2f%%", bottomChangePct);
+        canvas.drawText(bottomChange, 3f, paddingTop + chartHeight * 0.75f, textPaint);
         
         String bottomPrice = String.format("%.2f", priceBottom);
-        canvas.drawText(bottomPrice, 5f, paddingTop + chartHeight - 5f, textPaint);
+        canvas.drawText(bottomPrice, 3f, paddingTop + chartHeight - 3f, textPaint);
 
-        // 涨跌幅标签（左侧）
-        double maxChangePct = (priceTop - preClose) / preClose * 100;
-        canvas.drawText(String.format("+%.2f%%", maxChangePct), 5f, paddingTop + chartHeight * 0.25f, textPaint);
-        canvas.drawText(String.format("%.2f%%", -maxChangePct), 5f, paddingTop + chartHeight * 0.75f, textPaint);
-
-        // 昨收基准线
-        float baseY = paddingTop + chartHeight / 2;
-        canvas.drawLine(paddingLeft, baseY, paddingLeft + chartWidth, baseY, baseLinePaint);
-    }
-
-    private void drawVolumeLabels(Canvas canvas, float chartHeight, double maxVolume) {
         // 右侧Y轴：成交量标签
         volumeTextPaint.setTextAlign(Paint.Align.RIGHT);
-        int width = getWidth();
         
-        // 成交量最大值
         String maxVolStr = formatVolume(maxVolume);
-        canvas.drawText(maxVolStr, width - 5f, paddingTop + volumeTextPaint.getTextSize(), volumeTextPaint);
+        canvas.drawText(maxVolStr, width - 3f, paddingTop + 5f, volumeTextPaint);
         
-        // 成交量一半
         String halfVolStr = formatVolume(maxVolume / 2);
-        canvas.drawText(halfVolStr, width - 5f, paddingTop + chartHeight * (1 - volumeHeightRatio/2), volumeTextPaint);
+        canvas.drawText(halfVolStr, width - 3f, paddingTop + chartHeight * 0.25f, volumeTextPaint);
+        
+        canvas.drawText("0", width - 3f, paddingTop + chartHeight - 3f, volumeTextPaint);
     }
 
     private String formatVolume(double volume) {
@@ -284,10 +286,9 @@ public class IntradayChartView extends View {
 
     private void drawVolumeBars(Canvas canvas, float chartWidth, float chartHeight,
                                 List<IntradayPoint> points, double maxVolume, double preClose) {
-        float volumeHeight = chartHeight * volumeHeightRatio;
         float volumeBottom = paddingTop + chartHeight;  // 成交量柱底部在图表底部
         
-        float barWidth = chartWidth / TOTAL_MINUTES * 0.8f;
+        float barWidth = chartWidth / TOTAL_MINUTES * 0.7f;
 
         for (int i = 0; i < points.size(); i++) {
             IntradayPoint p = points.get(i);
@@ -301,14 +302,15 @@ public class IntradayChartView extends View {
             // 涨红跌绿
             if (currentPrice >= prevPrice) {
                 volumePaint.setColor(Color.parseColor("#dc3545"));  // 红色
-                volumePaint.setAlpha(120);
+                volumePaint.setAlpha(100);
             } else {
                 volumePaint.setColor(Color.parseColor("#20c997"));  // 绿色
-                volumePaint.setAlpha(120);
+                volumePaint.setAlpha(100);
             }
 
             float x = minuteIndexToX(minuteIndex, chartWidth);
-            float barHeight = (float) (p.getVolume() / maxVolume * volumeHeight);
+            // 成交量柱高度：按比例映射到整个图表高度
+            float barHeight = (float) (p.getVolume() / maxVolume * chartHeight);
             float top = volumeBottom - barHeight;
 
             canvas.drawRect(x - barWidth/2, top, x + barWidth/2, volumeBottom, volumePaint);
@@ -320,8 +322,6 @@ public class IntradayChartView extends View {
         if (points.isEmpty()) return;
 
         double priceRange = priceTop - priceBottom;
-        // 价格区域高度（扣除成交量区域）
-        float priceHeight = chartHeight * (1 - volumeHeightRatio);
 
         Path pricePath = new Path();
         Path fillPath = new Path();
@@ -334,12 +334,12 @@ public class IntradayChartView extends View {
             if (minuteIndex < 0) continue;
             
             float x = minuteIndexToX(minuteIndex, chartWidth);
-            // 价格Y坐标：基于价格区域计算
-            float y = paddingTop + (float) ((priceTop - p.getPrice()) / priceRange * priceHeight);
+            // 价格Y坐标：按比例映射到整个图表高度
+            float y = paddingTop + (float) ((priceTop - p.getPrice()) / priceRange * chartHeight);
 
             if (!pathStarted) {
                 pricePath.moveTo(x, y);
-                fillPath.moveTo(x, paddingTop + priceHeight / 2);
+                fillPath.moveTo(x, paddingTop + chartHeight / 2);
                 fillPath.lineTo(x, y);
                 pathStarted = true;
             } else {
@@ -351,8 +351,8 @@ public class IntradayChartView extends View {
         if (!pathStarted) return;
 
         // 完成填充路径（到昨收价位置）
-        fillPath.lineTo(paddingLeft + chartWidth, paddingTop + priceHeight / 2);
-        fillPath.lineTo(paddingLeft, paddingTop + priceHeight / 2);
+        fillPath.lineTo(paddingLeft + chartWidth, paddingTop + chartHeight / 2);
+        fillPath.lineTo(paddingLeft, paddingTop + chartHeight / 2);
         fillPath.close();
 
         double lastPrice = points.get(points.size() - 1).getPrice();
@@ -367,7 +367,6 @@ public class IntradayChartView extends View {
         if (points.isEmpty()) return;
 
         double priceRange = priceTop - priceBottom;
-        float priceHeight = chartHeight * (1 - volumeHeightRatio);
 
         Path avgPath = new Path();
         boolean pathStarted = false;
@@ -379,7 +378,7 @@ public class IntradayChartView extends View {
             if (minuteIndex < 0) continue;
             
             float x = minuteIndexToX(minuteIndex, chartWidth);
-            float y = paddingTop + (float) ((priceTop - p.getAvgPrice()) / priceRange * priceHeight);
+            float y = paddingTop + (float) ((priceTop - p.getAvgPrice()) / priceRange * chartHeight);
 
             if (!pathStarted) {
                 avgPath.moveTo(x, y);
@@ -401,17 +400,16 @@ public class IntradayChartView extends View {
         IntradayPoint lastPoint = points.get(points.size() - 1);
         double currentPrice = lastPoint.getPrice();
         double priceRange = priceTop - priceBottom;
-        float priceHeight = chartHeight * (1 - volumeHeightRatio);
 
-        float currentY = paddingTop + (float) ((priceTop - currentPrice) / priceRange * priceHeight);
+        float currentY = paddingTop + (float) ((priceTop - currentPrice) / priceRange * chartHeight);
 
-        // 当前价格水平线（只画价格区域）
+        // 当前价格水平线
         canvas.drawLine(paddingLeft, currentY, paddingLeft + chartWidth, currentY, currentPricePaint);
 
         // 当前价格标签（右侧）
         String priceText = String.format("%.2f", currentPrice);
         currentPriceTextPaint.setTextAlign(Paint.Align.LEFT);
-        canvas.drawText(priceText, paddingLeft + chartWidth + 5f, currentY + currentPriceTextPaint.getTextSize()/2, currentPriceTextPaint);
+        canvas.drawText(priceText, paddingLeft + chartWidth + 3f, currentY + 5f, currentPriceTextPaint);
     }
 
     private void drawTimeLabels(Canvas canvas, float chartWidth) {
