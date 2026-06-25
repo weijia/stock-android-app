@@ -10,6 +10,7 @@ import android.view.View;
 
 import com.stock.app.model.KLineData;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -18,7 +19,9 @@ import java.util.List;
  */
 public class PriceChartView extends View {
     private List<KLineData> data;
+    private List<Double> ma5;  // 5日均线数据
     private Paint linePaint;
+    private Paint ma5Paint;    // 5日均线画笔
     private Paint textPaint;
     private Paint gridPaint;
     private Paint fillPaint;
@@ -49,6 +52,13 @@ public class PriceChartView extends View {
         linePaint.setStyle(Paint.Style.STROKE);
         linePaint.setAntiAlias(true);
 
+        // 5日均线画笔（黄色）
+        ma5Paint = new Paint();
+        ma5Paint.setColor(Color.parseColor("#ffc107"));
+        ma5Paint.setStrokeWidth(1.5f);
+        ma5Paint.setStyle(Paint.Style.STROKE);
+        ma5Paint.setAntiAlias(true);
+
         // 文字画笔
         textPaint = new Paint();
         textPaint.setColor(Color.parseColor("#6c757d"));
@@ -71,12 +81,39 @@ public class PriceChartView extends View {
     }
 
     /**
-     * 设置数据
+     * 设置数据并计算5日均线
      * @param data K线数据列表
      */
     public void setData(List<KLineData> data) {
         this.data = data;
+        calculateMA5();
         invalidate(); // 触发重绘
+    }
+
+    /**
+     * 计算5日均线
+     */
+    private void calculateMA5() {
+        if (data == null || data.size() < 5) {
+            ma5 = new ArrayList<Double>();
+            return;
+        }
+
+        ma5 = new ArrayList<Double>();
+        
+        // 前4天没有5日均线
+        for (int i = 0; i < 4; i++) {
+            ma5.add(null);
+        }
+        
+        // 从第5天开始计算
+        for (int i = 4; i < data.size(); i++) {
+            double sum = 0;
+            for (int j = i - 4; j <= i; j++) {
+                sum += data.get(j).getClose();
+            }
+            ma5.add(sum / 5);
+        }
     }
 
     @Override
@@ -113,6 +150,9 @@ public class PriceChartView extends View {
 
         // 绘制折线和填充区域
         drawLineChart(canvas, chartWidth, chartHeight, minPrice, maxPrice);
+
+        // 绘制5日均线
+        drawMA5Line(canvas, chartWidth, chartHeight, minPrice, maxPrice);
 
         // 绘制坐标轴标签
         drawAxisLabels(canvas, chartWidth, chartHeight, minPrice, maxPrice);
@@ -179,6 +219,51 @@ public class PriceChartView extends View {
 
         // 绘制折线
         canvas.drawPath(linePath, linePaint);
+    }
+
+    /**
+     * 绘制5日均线
+     */
+    private void drawMA5Line(Canvas canvas, float chartWidth, float chartHeight,
+                             float minPrice, float maxPrice) {
+        if (ma5 == null || ma5.size() < 5 || data.size() < 2) return;
+
+        float xStep = chartWidth / (data.size() - 1);
+        float yRange = maxPrice - minPrice;
+
+        Path ma5Path = new Path();
+        boolean pathStarted = false;
+
+        for (int i = 4; i < data.size(); i++) {
+            Double ma5Value = ma5.get(i);
+            if (ma5Value == null) continue;
+
+            float x = padding + i * xStep;
+            float y = padding + chartHeight - (float) (ma5Value - minPrice) / yRange * chartHeight;
+
+            if (!pathStarted) {
+                ma5Path.moveTo(x, y);
+                pathStarted = true;
+            } else {
+                ma5Path.lineTo(x, y);
+            }
+        }
+
+        if (pathStarted) {
+            canvas.drawPath(ma5Path, ma5Paint);
+        }
+
+        // 绘制MA5标签
+        if (ma5.size() > 0 && ma5.get(ma5.size() - 1) != null) {
+            double lastMa5 = ma5.get(ma5.size() - 1);
+            textPaint.setColor(Color.parseColor("#ffc107"));
+            textPaint.setTextAlign(Paint.Align.RIGHT);
+            String ma5Str = String.format("MA5:%.2f", lastMa5);
+            float lastY = padding + chartHeight - (float) (lastMa5 - minPrice) / yRange * chartHeight;
+            canvas.drawText(ma5Str, padding + chartWidth + 3f, lastY, textPaint);
+            // 恢复文字颜色
+            textPaint.setColor(Color.parseColor("#6c757d"));
+        }
     }
 
     private void drawAxisLabels(Canvas canvas, float chartWidth, float chartHeight,
