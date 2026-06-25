@@ -233,7 +233,7 @@ public class IntradayChartView extends View {
                                          double preClose, double priceTop, double priceBottom, double maxVolume) {
         int width = getWidth();
         
-        // 绘制水平网格线（5条线：0%, 25%, 50%, 75%, 100%）
+        // 绘制水平网格线（5条线）
         for (int i = 0; i <= 4; i++) {
             float y = paddingTop + (chartHeight / 4) * i;
             canvas.drawLine(paddingLeft, y, paddingLeft + chartWidth, y, gridPaint);
@@ -243,25 +243,39 @@ public class IntradayChartView extends View {
         float baseY = paddingTop + chartHeight / 2;
         canvas.drawLine(paddingLeft, baseY, paddingLeft + chartWidth, baseY, baseLinePaint);
 
-        // 左侧Y轴：价格标签
+        // 左侧Y轴：价格标签和对应的涨跌幅标签
         textPaint.setTextAlign(Paint.Align.LEFT);
         
         // 价格映射：顶部=priceTop, 中间=preClose, 底部=priceBottom
-        String topPrice = String.format("%.2f", priceTop);
-        canvas.drawText(topPrice, 3f, paddingTop + 5f, textPaint);
+        double priceRange = priceTop - priceBottom;
         
+        // 顶部：最高价及其涨跌幅（显示在同一位置）
+        String topPrice = String.format("%.2f", priceTop);
         double topChangePct = (priceTop - preClose) / preClose * 100;
         String topChange = String.format("+%.2f%%", topChangePct);
-        canvas.drawText(topChange, 3f, paddingTop + chartHeight * 0.25f, textPaint);
+        canvas.drawText(topPrice, 3f, paddingTop + 5f, textPaint);
+        canvas.drawText(topChange, 3f, paddingTop + 18f, textPaint);  // 价格下方
         
+        // 25%位置：显示该位置对应的涨跌幅
+        double priceAt25 = priceTop - priceRange * 0.25;
+        double changeAt25 = (priceAt25 - preClose) / preClose * 100;
+        String change25Str = String.format("%.2f%%", changeAt25);
+        canvas.drawText(change25Str, 3f, paddingTop + chartHeight * 0.25f, textPaint);
+        
+        // 中间：昨收价（基准）
         String midPrice = String.format("%.2f", preClose);
         canvas.drawText(midPrice, 3f, baseY + 5f, textPaint);
         
+        // 75%位置：显示该位置对应的涨跌幅
+        double priceAt75 = priceTop - priceRange * 0.75;
+        double changeAt75 = (priceAt75 - preClose) / preClose * 100;
+        String change75Str = String.format("%.2f%%", changeAt75);
+        canvas.drawText(change75Str, 3f, paddingTop + chartHeight * 0.75f, textPaint);
+        
+        // 底部：最低价及其涨跌幅（显示在同一位置）
+        String bottomPrice = String.format("%.2f", priceBottom);
         double bottomChangePct = (priceBottom - preClose) / preClose * 100;
         String bottomChange = String.format("%.2f%%", bottomChangePct);
-        canvas.drawText(bottomChange, 3f, paddingTop + chartHeight * 0.75f, textPaint);
-        
-        String bottomPrice = String.format("%.2f", priceBottom);
         canvas.drawText(bottomPrice, 3f, paddingTop + chartHeight - 3f, textPaint);
 
         // 右侧Y轴：成交量标签
