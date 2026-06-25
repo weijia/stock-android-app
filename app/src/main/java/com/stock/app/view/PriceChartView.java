@@ -25,9 +25,13 @@ public class PriceChartView extends View {
     private Paint textPaint;
     private Paint gridPaint;
     private Paint fillPaint;
+    private Paint volumePaint; // 成交量画笔
+    private Paint upPaint;     // 涨（红色）
+    private Paint downPaint;   // 跌（绿色）
 
     private float padding = 40f;
     private float textHeight = 20f;
+    private float volumeHeightRatio = 0.25f;  // 成交量区域高度比例
 
     public PriceChartView(Context context) {
         super(context);
@@ -78,6 +82,23 @@ public class PriceChartView extends View {
         fillPaint.setAlpha(30);
         fillPaint.setStyle(Paint.Style.FILL);
         fillPaint.setAntiAlias(true);
+
+        // 成交量画笔
+        volumePaint = new Paint();
+        volumePaint.setStyle(Paint.Style.FILL);
+        volumePaint.setAntiAlias(true);
+
+        // 涨（红色）
+        upPaint = new Paint();
+        upPaint.setColor(Color.parseColor("#dc3545"));
+        upPaint.setStyle(Paint.Style.FILL);
+        upPaint.setAntiAlias(true);
+
+        // 跌（绿色）
+        downPaint = new Paint();
+        downPaint.setColor(Color.parseColor("#20c997"));
+        downPaint.setStyle(Paint.Style.FILL);
+        downPaint.setAntiAlias(true);
     }
 
     /**
@@ -132,30 +153,37 @@ public class PriceChartView extends View {
         float chartWidth = width - padding * 2;
         float chartHeight = height - padding - textHeight;
 
-        // 计算数据范围
-        float minPrice = Float.MAX_VALUE;
-        float maxPrice = Float.MIN_VALUE;
+        // 计算价格范围（使用 high 和 low）
+        double minPrice = Double.MAX_VALUE;
+        double maxPrice = Double.MIN_VALUE;
+        double maxVolume = 0;
+        
         for (KLineData k : data) {
-            if ((float) k.getClose() < minPrice) minPrice = (float) k.getClose();
-            if ((float) k.getClose() > maxPrice) maxPrice = (float) k.getClose();
+            if (k.getLow() < minPrice) minPrice = k.getLow();
+            if (k.getHigh() > maxPrice) maxPrice = k.getHigh();
+            if (k.getVolume() > maxVolume) maxVolume = k.getVolume();
         }
 
         // 防止价格范围为0
         if (maxPrice == minPrice) {
-            maxPrice = minPrice + 1;
+            maxPrice = minPrice + 0.1;
         }
+        if (maxVolume == 0) maxVolume = 1;
 
         // 绘制网格线
         drawGrid(canvas, chartWidth, chartHeight);
 
+        // 绘制成交量柱（底部）
+        drawVolumeBars(canvas, chartWidth, chartHeight, maxVolume);
+
         // 绘制折线和填充区域
-        drawLineChart(canvas, chartWidth, chartHeight, minPrice, maxPrice);
+        drawLineChart(canvas, chartWidth, chartHeight, (float) minPrice, (float) maxPrice);
 
         // 绘制5日均线
-        drawMA5Line(canvas, chartWidth, chartHeight, minPrice, maxPrice);
+        drawMA5Line(canvas, chartWidth, chartHeight, (float) minPrice, (float) maxPrice);
 
         // 绘制坐标轴标签
-        drawAxisLabels(canvas, chartWidth, chartHeight, minPrice, maxPrice);
+        drawAxisLabels(canvas, chartWidth, chartHeight, (float) minPrice, (float) maxPrice, maxVolume);
     }
 
     private void drawEmptyState(Canvas canvas) {
@@ -172,16 +200,42 @@ public class PriceChartView extends View {
     }
 
     private void drawGrid(Canvas canvas, float chartWidth, float chartHeight) {
-        // 绘制水平网格线（3条）
+        float priceHeight = chartHeight * (1 - volumeHeightRatio);
+        
+        // 绘制水平网格线（价格区域）
         for (int i = 0; i <= 3; i++) {
-            float y = padding + (chartHeight / 3) * i;
+            float y = padding + (priceHeight / 3) * i;
             canvas.drawLine(padding, y, padding + chartWidth, y, gridPaint);
         }
 
-        // 绘制垂直网格线（5条）
-        for (int i = 0; i <= 5; i++) {
-            float x = padding + (chartWidth / 5) * i;
-            canvas.drawLine(x, padding, x, padding + chartHeight, gridPaint);
+        // 绘制成交量区域分隔线
+        float volumeTop = padding + priceHeight;
+        canvas.drawLine(padding, volumeTop, padding + chartWidth, volumeTop, gridPaint);
+    }
+
+    /**
+     * 绘制成交量柱
+     */
+    private void drawVolumeBars(Canvas canvas, float chartWidth, float chartHeight, double maxVolume) {
+        if (data.size() < 1) return;
+
+        float priceHeight = chartHeight * (1 - volumeHeightRatio);
+        float volumeHeight = chartHeight * volumeHeightRatio;
+        float volumeBottom = padding + chartHeight;
+        
+        float barWidth = chartWidth / data.size() * 0.7f;
+        float xStep = chartWidth / (data.size() - 1);
+
+        for (int i = 0; i < data.size(); i++) {
+            KLineData k = data.get(i);
+            
+            float x = padding + i * xStep;
+            
+            // 成交量柱颜色：涨红跌绿
+            Paint barPaint = (k.getClose() >= k.getOpen()) ? upPaint : downPaint;
+            
+            float barHeight = (float) (k.getVolume() / maxVolume * volumeHeight);
+            canvas.drawRect(x - barWidth/2, volumeBottom - barHeight, x + barWidth/2, volumeBottom, barPaint);
         }
     }
 
@@ -189,6 +243,7 @@ public class PriceChartView extends View {
                                float minPrice, float maxPrice) {
         if (data.size() < 2) return;
 
+        float priceHeight = chartHeight * (1 - volumeHeightRatio);
         float xStep = chartWidth / (data.size() - 1);
         float yRange = maxPrice - minPrice;
 
@@ -197,11 +252,11 @@ public class PriceChartView extends View {
 
         for (int i = 0; i < data.size(); i++) {
             float x = padding + i * xStep;
-            float y = padding + chartHeight - ((float) data.get(i).getClose() - minPrice) / yRange * chartHeight;
+            float y = padding + priceHeight - ((float) data.get(i).getClose() - minPrice) / yRange * priceHeight;
 
             if (i == 0) {
                 linePath.moveTo(x, y);
-                fillPath.moveTo(x, padding + chartHeight);
+                fillPath.moveTo(x, padding + priceHeight);
                 fillPath.lineTo(x, y);
             } else {
                 linePath.lineTo(x, y);
@@ -210,8 +265,8 @@ public class PriceChartView extends View {
         }
 
         // 完成填充路径
-        fillPath.lineTo(padding + (data.size() - 1) * xStep, padding + chartHeight);
-        fillPath.lineTo(padding, padding + chartHeight);
+        fillPath.lineTo(padding + (data.size() - 1) * xStep, padding + priceHeight);
+        fillPath.lineTo(padding, padding + priceHeight);
         fillPath.close();
 
         // 绘制填充区域
@@ -228,6 +283,7 @@ public class PriceChartView extends View {
                              float minPrice, float maxPrice) {
         if (ma5 == null || ma5.size() < 5 || data.size() < 2) return;
 
+        float priceHeight = chartHeight * (1 - volumeHeightRatio);
         float xStep = chartWidth / (data.size() - 1);
         float yRange = maxPrice - minPrice;
 
@@ -239,7 +295,7 @@ public class PriceChartView extends View {
             if (ma5Value == null) continue;
 
             float x = padding + i * xStep;
-            float y = padding + chartHeight - (float) (ma5Value - minPrice) / yRange * chartHeight;
+            float y = padding + priceHeight - (float) (ma5Value - minPrice) / yRange * priceHeight;
 
             if (!pathStarted) {
                 ma5Path.moveTo(x, y);
@@ -259,7 +315,7 @@ public class PriceChartView extends View {
             textPaint.setColor(Color.parseColor("#ffc107"));
             textPaint.setTextAlign(Paint.Align.RIGHT);
             String ma5Str = String.format("MA5:%.2f", lastMa5);
-            float lastY = padding + chartHeight - (float) (lastMa5 - minPrice) / yRange * chartHeight;
+            float lastY = padding + priceHeight - (float) (lastMa5 - minPrice) / yRange * priceHeight;
             canvas.drawText(ma5Str, padding + chartWidth + 3f, lastY, textPaint);
             // 恢复文字颜色
             textPaint.setColor(Color.parseColor("#6c757d"));
@@ -267,30 +323,49 @@ public class PriceChartView extends View {
     }
 
     private void drawAxisLabels(Canvas canvas, float chartWidth, float chartHeight,
-                                float minPrice, float maxPrice) {
+                                float minPrice, float maxPrice, double maxVolume) {
+        float priceHeight = chartHeight * (1 - volumeHeightRatio);
+        float volumeHeight = chartHeight * volumeHeightRatio;
+        
         textPaint.setTextAlign(Paint.Align.LEFT);
 
         // 绘制最高价标签（顶部）
         String maxPriceStr = String.format("%.2f", maxPrice);
         canvas.drawText(maxPriceStr, 5f, padding + 5f, textPaint);
 
-        // 绘制最低价标签（底部）
-        String minPriceStr = String.format("%.2f", minPrice);
-        canvas.drawText(minPriceStr, 5f, padding + chartHeight - 5f, textPaint);
-
         // 绘制中间价格标签
         float midPrice = (maxPrice + minPrice) / 2;
         String midPriceStr = String.format("%.2f", midPrice);
-        canvas.drawText(midPriceStr, 5f, padding + chartHeight / 2, textPaint);
+        canvas.drawText(midPriceStr, 5f, padding + priceHeight / 2, textPaint);
+
+        // 绘制最低价标签
+        String minPriceStr = String.format("%.2f", minPrice);
+        canvas.drawText(minPriceStr, 5f, padding + priceHeight - 5f, textPaint);
+
+        // 绘制成交量标签（右侧）
+        textPaint.setTextAlign(Paint.Align.RIGHT);
+        String maxVolStr = formatVolume(maxVolume);
+        canvas.drawText(maxVolStr, chartWidth + padding + 3f, padding + priceHeight + 5f, textPaint);
 
         // 绘制日期标签（底部）
         textPaint.setTextAlign(Paint.Align.CENTER);
+        textPaint.setColor(Color.parseColor("#6c757d"));
         if (data.size() > 0) {
             // 第一个日期
-            canvas.drawText(data.get(0).getShortDate(), padding, padding + chartHeight + textHeight, textPaint);
+            canvas.drawText(data.get(0).getShortDate(), padding, padding + chartHeight + textHeight - 5f, textPaint);
             // 最后一个日期
             canvas.drawText(data.get(data.size() - 1).getShortDate(),
-                    padding + chartWidth, padding + chartHeight + textHeight, textPaint);
+                    padding + chartWidth, padding + chartHeight + textHeight - 5f, textPaint);
+        }
+    }
+
+    private String formatVolume(double volume) {
+        if (volume >= 100000000) {
+            return String.format("%.1f亿", volume / 100000000);
+        } else if (volume >= 10000) {
+            return String.format("%.0f万", volume / 10000);
+        } else {
+            return String.format("%.0f", volume);
         }
     }
 }
