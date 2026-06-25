@@ -9,7 +9,7 @@ android {
         applicationId "com.stock.app"
         minSdk 14
         targetSdk 33
-        versionCode 79
+        versionCode 80
         versionName "1.0.0"
     }
 
