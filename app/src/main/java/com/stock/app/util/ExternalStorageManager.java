@@ -148,13 +148,18 @@ public class ExternalStorageManager {
             List<UriPermission> permissions = resolver.getPersistedUriPermissions();
             boolean hasPermission = false;
             
-            for (UriPermission perm : permissions) {
-                Log.i(TAG, "已有权限: " + perm.getUri() + " (读: " + perm.isReadPermission() + ", 写: " + perm.isWritePermission() + ")");
-                if (perm.getUri().toString().equals(uriString) || 
-                    perm.getUri().toString().startsWith(uriString)) {
-                    hasPermission = true;
-                    break;
+            // 安全检查：permissions 可能返回 null
+            if (permissions != null) {
+                for (UriPermission perm : permissions) {
+                    Log.i(TAG, "已有权限: " + perm.getUri());
+                    if (perm.getUri().toString().equals(uriString) || 
+                        perm.getUri().toString().startsWith(uriString)) {
+                        hasPermission = true;
+                        break;
+                    }
                 }
+            } else {
+                Log.w(TAG, "getPersistedUriPermissions 返回 null");
             }
             
             if (!hasPermission) {

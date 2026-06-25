@@ -117,79 +117,94 @@
                 android:textColor="@color/textSecondary" />
         </LinearLayout>
 
-        <!-- 详细数据网格（缩小字体） -->
+        <!-- 详细数据网格（紧凑布局，一行两项） -->
         <GridLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:columnCount="2"
+            android:layout_marginTop="8dp"
+            android:columnCount="4"
             android:rowCount="3">
 
+            <!-- 第一行：开盘 值 最高 值 -->
             <TextView
                 android:text="@string/label_open"
                 android:textColor="@color/textSecondary"
-                android:textSize="12sp" />
+                android:textSize="12sp"
+                android:layout_columnWeight="0" />
 
             <TextView
                 android:id="@+id/tv_open"
                 android:textColor="@color/textPrimary"
                 android:textSize="14sp"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                android:layout_columnWeight="1" />
 
             <TextView
                 android:text="@string/label_high"
                 android:textColor="@color/textSecondary"
-                android:textSize="12sp" />
+                android:textSize="12sp"
+                android:layout_columnWeight="0" />
 
             <TextView
                 android:id="@+id/tv_high"
                 android:textColor="@color/textPrimary"
                 android:textSize="14sp"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                android:layout_columnWeight="1" />
 
+            <!-- 第二行：最低 值 昨收 值 -->
             <TextView
                 android:text="@string/label_low"
                 android:textColor="@color/textSecondary"
-                android:textSize="12sp" />
+                android:textSize="12sp"
+                android:layout_columnWeight="0" />
 
             <TextView
                 android:id="@+id/tv_low"
                 android:textColor="@color/textPrimary"
                 android:textSize="14sp"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                android:layout_columnWeight="1" />
 
             <TextView
                 android:text="@string/label_last_close"
                 android:textColor="@color/textSecondary"
-                android:textSize="12sp" />
+                android:textSize="12sp"
+                android:layout_columnWeight="0" />
 
             <TextView
                 android:id="@+id/tv_last_close"
                 android:textColor="@color/textPrimary"
                 android:textSize="14sp"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                android:layout_columnWeight="1" />
 
+            <!-- 第三行：成交量 值 成交额 值 -->
             <TextView
                 android:text="@string/label_volume"
                 android:textColor="@color/textSecondary"
-                android:textSize="12sp" />
+                android:textSize="12sp"
+                android:layout_columnWeight="0" />
 
             <TextView
                 android:id="@+id/tv_volume"
                 android:textColor="@color/textPrimary"
                 android:textSize="14sp"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                android:layout_columnWeight="1" />
 
             <TextView
                 android:text="@string/label_amount"
                 android:textColor="@color/textSecondary"
-                android:textSize="12sp" />
+                android:textSize="12sp"
+                android:layout_columnWeight="0" />
 
             <TextView
                 android:id="@+id/tv_amount"
                 android:textColor="@color/textPrimary"
                 android:textSize="14sp"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                android:layout_columnWeight="1" />
         </GridLayout>
     </LinearLayout>
 
