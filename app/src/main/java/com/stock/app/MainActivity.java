@@ -59,7 +59,6 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
     private TextView tvAmount;
     private TextView tvIntradayDate;
     private PriceChartView priceChart;
-    private VolumeChartView volumeChart;
     private IntradayChartView intradayChart;
 
     // 服务组件
@@ -191,7 +190,6 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         tvAmount = findViewById(R.id.tv_amount);
         tvIntradayDate = findViewById(R.id.tv_intraday_date);
         priceChart = findViewById(R.id.price_chart);
-        volumeChart = findViewById(R.id.volume_chart);
         intradayChart = findViewById(R.id.intraday_chart);
     }
 
@@ -303,9 +301,10 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         stockService.fetchKline(code, 30, new StockService.DataCallback<List<KLineData>>() {
             @Override
             public void onSuccess(List<KLineData> data) {
-                // 只预加载K线数据，不显示30日图表（分时图优先）
-                priceChart.setData(data);
-                volumeChart.setData(data);
+                if (data != null && data.size() > 0) {
+                    priceChart.setData(data);
+                    chartPanel.setVisibility(View.VISIBLE);  // 显示日K线图区域
+                }
             }
 
             @Override

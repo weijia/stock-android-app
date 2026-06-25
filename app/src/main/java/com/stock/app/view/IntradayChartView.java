@@ -17,8 +17,8 @@ import java.util.List;
  * 分时图自定义视图
  * 显示当天或上一交易日的分时走势
  * 
+ * 成交量叠加在价格图底部
  * 时间轴固定：上午 9:30-11:30 (120分钟)，下午 13:00-15:00 (120分钟)
- * 去掉午休时间 11:30-13:00
  */
 public class IntradayChartView extends View {
     private IntradayData data;
@@ -31,15 +31,16 @@ public class IntradayChartView extends View {
     private Paint baseLinePaint;
     private Paint currentPricePaint;
     private Paint currentPriceTextPaint;
+    private Paint volumePaint;
 
     private float padding = 40f;
     private float textHeight = 20f;
-    private float chartHeightRatio = 0.7f;
+    private float volumeHeightRatio = 0.25f;  // 成交量占底部25%
     
     // 固定时间范围（分钟数）
-    private static final int MORNING_MINUTES = 120;  // 9:30-11:30 = 120分钟
-    private static final int AFTERNOON_MINUTES = 120;  // 13:00-15:00 = 120分钟
-    private static final int TOTAL_MINUTES = MORNING_MINUTES + AFTERNOON_MINUTES;  // 240分钟
+    private static final int MORNING_MINUTES = 120;
+    private static final int AFTERNOON_MINUTES = 120;
+    private static final int TOTAL_MINUTES = MORNING_MINUTES + AFTERNOON_MINUTES;
 
     public IntradayChartView(Context context) {
         super(context);
@@ -77,17 +78,17 @@ public class IntradayChartView extends View {
 
         textPaint = new Paint();
         textPaint.setColor(Color.parseColor("#6c757d"));
-        textPaint.setTextSize(20f);
+        textPaint.setTextSize(16f);
         textPaint.setAntiAlias(true);
 
         upPaint = new Paint();
-        upPaint.setColor(Color.parseColor("#20c997"));
+        upPaint.setColor(Color.parseColor("#20c997"));  // 绿色
         upPaint.setAlpha(30);
         upPaint.setStyle(Paint.Style.FILL);
         upPaint.setAntiAlias(true);
 
         downPaint = new Paint();
-        downPaint.setColor(Color.parseColor("#dc3545"));
+        downPaint.setColor(Color.parseColor("#dc3545"));  // 红色
         downPaint.setAlpha(30);
         downPaint.setStyle(Paint.Style.FILL);
         downPaint.setAntiAlias(true);
@@ -106,9 +107,13 @@ public class IntradayChartView extends View {
 
         currentPriceTextPaint = new Paint();
         currentPriceTextPaint.setColor(Color.parseColor("#dc3545"));
-        currentPriceTextPaint.setTextSize(20f);
+        currentPriceTextPaint.setTextSize(16f);
         currentPriceTextPaint.setAntiAlias(true);
         currentPriceTextPaint.setTextAlign(Paint.Align.RIGHT);
+
+        volumePaint = new Paint();
+        volumePaint.setStyle(Paint.Style.FILL);
+        volumePaint.setAntiAlias(true);
     }
 
     public void setData(IntradayData data) {
@@ -129,11 +134,17 @@ public class IntradayChartView extends View {
         int height = getHeight();
 
         float chartWidth = width - padding * 2;
-        float priceChartHeight = (height - padding - textHeight) * chartHeightRatio;
-        float volumeChartHeight = (height - padding - textHeight) * (1 - chartHeightRatio);
+        float chartHeight = height - padding - textHeight;
+        float volumeHeight = chartHeight * volumeHeightRatio;
+        float priceHeight = chartHeight - volumeHeight;
 
-        drawPriceChart(canvas, chartWidth, priceChartHeight);
-        drawVolumeChart(canvas, chartWidth, priceChartHeight, volumeChartHeight);
+        // 绘制价格图（上部）
+        drawPriceChart(canvas, chartWidth, priceHeight);
+        
+        // 绘制成交量（叠加在底部）
+        drawVolumeChart(canvas, chartWidth, priceHeight, volumeHeight);
+        
+        // 绘制时间标签
         drawTimeLabels(canvas, chartWidth, height);
     }
 
@@ -143,60 +154,37 @@ public class IntradayChartView extends View {
 
         Paint emptyPaint = new Paint();
         emptyPaint.setColor(Color.parseColor("#adb5bd"));
-        emptyPaint.setTextSize(20f);
+        emptyPaint.setTextSize(16f);
         emptyPaint.setAntiAlias(true);
         emptyPaint.setTextAlign(Paint.Align.CENTER);
 
         canvas.drawText("暂无分时数据", width / 2f, height / 2f, emptyPaint);
     }
 
-    /**
-     * 将时间字符串转换为分钟索引（去掉午休时间）
-     * 
-     * 时间格式：HH:MM
-     * 上午：9:30-11:30 -> 累计0-120分钟
-     * 下午：13:00-15:00 -> 累计120-240分钟
-     * 
-     * @return 分钟索引（0-240），如果时间无效返回-1
-     */
     private int timeToMinuteIndex(String time) {
         try {
             String[] parts = time.split(":");
             int hour = Integer.parseInt(parts[0]);
             int minute = Integer.parseInt(parts[1]);
             
-            // 上午时段：9:30-11:30
-            if (hour == 9) {
-                return minute - 30;  // 9:30 -> 0, 9:31 -> 1
-            } else if (hour == 10) {
-                return 30 + minute;  // 10:00 -> 30, 10:30 -> 60
-            } else if (hour == 11 && minute <= 30) {
-                return 90 + minute;  // 11:00 -> 90, 11:30 -> 120
-            }
+            if (hour == 9) return minute - 30;
+            else if (hour == 10) return 30 + minute;
+            else if (hour == 11 && minute <= 30) return 90 + minute;
+            else if (hour == 13) return MORNING_MINUTES + minute;
+            else if (hour == 14) return MORNING_MINUTES + 60 + minute;
+            else if (hour == 15 && minute == 0) return TOTAL_MINUTES;
             
-            // 下午时段：13:00-15:00
-            else if (hour == 13) {
-                return MORNING_MINUTES + minute;  // 13:00 -> 120, 13:30 -> 150
-            } else if (hour == 14) {
-                return MORNING_MINUTES + 60 + minute;  // 14:00 -> 180, 14:30 -> 210
-            } else if (hour == 15 && minute == 0) {
-                return TOTAL_MINUTES;  // 15:00 -> 240
-            }
-            
-            return -1;  // 无效时间（午休时间或其他）
+            return -1;
         } catch (Exception e) {
             return -1;
         }
     }
 
-    /**
-     * 将分钟索引转换为X坐标
-     */
     private float minuteIndexToX(int minuteIndex, float chartWidth) {
         return padding + (minuteIndex / (float) TOTAL_MINUTES) * chartWidth;
     }
 
-    private void drawPriceChart(Canvas canvas, float chartWidth, float priceChartHeight) {
+    private void drawPriceChart(Canvas canvas, float chartWidth, float priceHeight) {
         List<IntradayPoint> points = data.getData();
         double preClose = data.getPreClose();
         double maxPrice = data.getMaxPrice();
@@ -211,21 +199,21 @@ public class IntradayChartView extends View {
             priceBottom = preClose - 0.1;
         }
 
-        drawPriceGrid(canvas, chartWidth, priceChartHeight, preClose, priceTop, priceBottom);
+        drawPriceGrid(canvas, chartWidth, priceHeight, preClose, priceTop, priceBottom);
 
-        float baseY = padding + priceChartHeight / 2;
+        float baseY = padding + priceHeight / 2;
         canvas.drawLine(padding, baseY, padding + chartWidth, baseY, baseLinePaint);
 
-        drawPriceLine(canvas, chartWidth, priceChartHeight, points, preClose, priceTop, priceBottom);
-        drawAvgLine(canvas, chartWidth, priceChartHeight, points, preClose, priceTop, priceBottom);
-        drawCurrentPriceLine(canvas, chartWidth, priceChartHeight, points, preClose, priceTop, priceBottom);
+        drawPriceLine(canvas, chartWidth, priceHeight, points, preClose, priceTop, priceBottom);
+        drawAvgLine(canvas, chartWidth, priceHeight, points, preClose, priceTop, priceBottom);
+        drawCurrentPriceLine(canvas, chartWidth, priceHeight, points, preClose, priceTop, priceBottom);
     }
 
-    private void drawPriceGrid(Canvas canvas, float chartWidth, float priceChartHeight,
+    private void drawPriceGrid(Canvas canvas, float chartWidth, float priceHeight,
                                double preClose, double priceTop, double priceBottom) {
         // 绘制水平网格线
         for (int i = 0; i <= 3; i++) {
-            float y = padding + (priceChartHeight / 3) * i;
+            float y = padding + (priceHeight / 3) * i;
             canvas.drawLine(padding, y, padding + chartWidth, y, gridPaint);
         }
 
@@ -235,18 +223,18 @@ public class IntradayChartView extends View {
         canvas.drawText(topPrice, 5f, padding + 5f + textPaint.getTextSize()/2, textPaint);
         
         String midPrice = String.format("%.2f", preClose);
-        canvas.drawText(midPrice, 5f, padding + priceChartHeight / 2 + textPaint.getTextSize()/2, textPaint);
+        canvas.drawText(midPrice, 5f, padding + priceHeight / 2 + textPaint.getTextSize()/2, textPaint);
         
         String bottomPrice = String.format("%.2f", priceBottom);
-        canvas.drawText(bottomPrice, 5f, padding + priceChartHeight - 5f + textPaint.getTextSize()/2, textPaint);
+        canvas.drawText(bottomPrice, 5f, padding + priceHeight - 5f + textPaint.getTextSize()/2, textPaint);
 
         double maxChangePct = (priceTop - preClose) / preClose * 100;
         textPaint.setTextAlign(Paint.Align.RIGHT);
         canvas.drawText(String.format("+%.2f%%", maxChangePct), getWidth() - 5f, padding + 5f + textPaint.getTextSize()/2, textPaint);
-        canvas.drawText(String.format("%.2f%%", -maxChangePct), getWidth() - 5f, padding + priceChartHeight - 5f + textPaint.getTextSize()/2, textPaint);
+        canvas.drawText(String.format("%.2f%%", -maxChangePct), getWidth() - 5f, padding + priceHeight - 5f + textPaint.getTextSize()/2, textPaint);
     }
 
-    private void drawPriceLine(Canvas canvas, float chartWidth, float priceChartHeight,
+    private void drawPriceLine(Canvas canvas, float chartWidth, float priceHeight,
                                List<IntradayPoint> points, double preClose, double priceTop, double priceBottom) {
         if (points.isEmpty()) return;
 
@@ -259,16 +247,15 @@ public class IntradayChartView extends View {
         for (int i = 0; i < points.size(); i++) {
             IntradayPoint p = points.get(i);
             
-            // 根据时间计算X坐标
             int minuteIndex = timeToMinuteIndex(p.getTime());
-            if (minuteIndex < 0) continue;  // 跳过无效时间
+            if (minuteIndex < 0) continue;
             
             float x = minuteIndexToX(minuteIndex, chartWidth);
-            float y = padding + (float) ((priceTop - p.getPrice()) / priceRange * priceChartHeight);
+            float y = padding + (float) ((priceTop - p.getPrice()) / priceRange * priceHeight);
 
             if (!pathStarted) {
                 pricePath.moveTo(x, y);
-                fillPath.moveTo(x, padding + priceChartHeight / 2);
+                fillPath.moveTo(x, padding + priceHeight / 2);
                 fillPath.lineTo(x, y);
                 pathStarted = true;
             } else {
@@ -279,20 +266,18 @@ public class IntradayChartView extends View {
 
         if (!pathStarted) return;
 
-        // 完成填充路径
-        fillPath.lineTo(padding + chartWidth, padding + priceChartHeight / 2);
-        fillPath.lineTo(padding, padding + priceChartHeight / 2);
+        fillPath.lineTo(padding + chartWidth, padding + priceHeight / 2);
+        fillPath.lineTo(padding, padding + priceHeight / 2);
         fillPath.close();
 
         double lastPrice = points.get(points.size() - 1).getPrice();
-        // 中国股市习惯：涨红跌绿
-        Paint fillPaint = lastPrice >= preClose ? downPaint : upPaint;  // 涨红跌绿
+        Paint fillPaint = lastPrice >= preClose ? downPaint : upPaint;
 
         canvas.drawPath(fillPath, fillPaint);
         canvas.drawPath(pricePath, pricePaint);
     }
 
-    private void drawAvgLine(Canvas canvas, float chartWidth, float priceChartHeight,
+    private void drawAvgLine(Canvas canvas, float chartWidth, float priceHeight,
                              List<IntradayPoint> points, double preClose, double priceTop, double priceBottom) {
         if (points.isEmpty()) return;
 
@@ -308,7 +293,7 @@ public class IntradayChartView extends View {
             if (minuteIndex < 0) continue;
             
             float x = minuteIndexToX(minuteIndex, chartWidth);
-            float y = padding + (float) ((priceTop - p.getAvgPrice()) / priceRange * priceChartHeight);
+            float y = padding + (float) ((priceTop - p.getAvgPrice()) / priceRange * priceHeight);
 
             if (!pathStarted) {
                 avgPath.moveTo(x, y);
@@ -323,7 +308,7 @@ public class IntradayChartView extends View {
         }
     }
 
-    private void drawCurrentPriceLine(Canvas canvas, float chartWidth, float priceChartHeight,
+    private void drawCurrentPriceLine(Canvas canvas, float chartWidth, float priceHeight,
                                       List<IntradayPoint> points, double preClose, double priceTop, double priceBottom) {
         if (points.isEmpty()) return;
 
@@ -331,31 +316,25 @@ public class IntradayChartView extends View {
         double currentPrice = lastPoint.getPrice();
         double priceRange = priceTop - priceBottom;
 
-        float currentY = padding + (float) ((priceTop - currentPrice) / priceRange * priceChartHeight);
+        float currentY = padding + (float) ((priceTop - currentPrice) / priceRange * priceHeight);
 
-        // 绘制当前价格水平线
         canvas.drawLine(padding, currentY, padding + chartWidth, currentY, currentPricePaint);
 
         String priceText = String.format("%.2f", currentPrice);
         canvas.drawText(priceText, getWidth() - 5f, currentY + currentPriceTextPaint.getTextSize()/2, currentPriceTextPaint);
     }
 
-    private void drawVolumeChart(Canvas canvas, float chartWidth, float priceChartHeight,
-                                  float volumeChartHeight) {
+    private void drawVolumeChart(Canvas canvas, float chartWidth, float priceHeight, float volumeHeight) {
         List<IntradayPoint> points = data.getData();
         double maxVolume = data.getMaxVolume();
 
         if (maxVolume == 0) maxVolume = 1;
 
-        float volumeTop = padding + priceChartHeight + 10f;
-        float volumeBottom = volumeTop + volumeChartHeight;
-
-        canvas.drawLine(padding, volumeTop, padding + chartWidth, volumeTop, gridPaint);
-        canvas.drawLine(padding, volumeBottom, padding + chartWidth, volumeBottom, gridPaint);
+        float volumeTop = padding + priceHeight;
+        float volumeBottom = volumeTop + volumeHeight;
 
         double preClose = data.getPreClose();
         
-        // 每根柱子的宽度（基于固定分钟数）
         float barWidth = chartWidth / TOTAL_MINUTES * 0.8f;
 
         for (int i = 0; i < points.size(); i++) {
@@ -364,26 +343,23 @@ public class IntradayChartView extends View {
             int minuteIndex = timeToMinuteIndex(p.getTime());
             if (minuteIndex < 0) continue;
             
-            Paint barPaint;
-            // 分时图成交量柱颜色规则：根据价格变化方向
-            // 红色：当前分钟价格 > 上一分钟价格（价格上涨）
-            // 绿色：当前分钟价格 < 上一分钟价格（价格下跌）
             double currentPrice = p.getPrice();
             double prevPrice = (i > 0) ? points.get(i - 1).getPrice() : preClose;
             
+            // 涨红跌绿
             if (currentPrice >= prevPrice) {
-                barPaint = new Paint(downPaint);  // 红色（价格上涨）
-                barPaint.setAlpha(180);
+                volumePaint.setColor(Color.parseColor("#dc3545"));  // 红色
+                volumePaint.setAlpha(150);
             } else {
-                barPaint = new Paint(upPaint);  // 绿色（价格下跌）
-                barPaint.setAlpha(180);
+                volumePaint.setColor(Color.parseColor("#20c997"));  // 绿色
+                volumePaint.setAlpha(150);
             }
 
             float x = minuteIndexToX(minuteIndex, chartWidth);
-            float barHeight = (float) (p.getVolume() / maxVolume * volumeChartHeight);
+            float barHeight = (float) (p.getVolume() / maxVolume * volumeHeight);
             float top = volumeBottom - barHeight;
 
-            canvas.drawRect(x - barWidth/2, top, x + barWidth/2, volumeBottom, barPaint);
+            canvas.drawRect(x - barWidth/2, top, x + barWidth/2, volumeBottom, volumePaint);
         }
     }
 
@@ -393,10 +369,8 @@ public class IntradayChartView extends View {
 
         float labelY = height - 5f;
         
-        // 固定时间标签：09:30, 11:30, 13:00, 15:00
         canvas.drawText("09:30", padding, labelY, textPaint);
-        canvas.drawText("11:30", minuteIndexToX(MORNING_MINUTES, chartWidth), labelY, textPaint);
-        canvas.drawText("13:00", minuteIndexToX(MORNING_MINUTES, chartWidth), labelY, textPaint);  // 13:00 和 11:30 同位置
+        canvas.drawText("11:30/13:00", minuteIndexToX(MORNING_MINUTES, chartWidth), labelY, textPaint);
         canvas.drawText("15:00", padding + chartWidth, labelY, textPaint);
     }
 }
