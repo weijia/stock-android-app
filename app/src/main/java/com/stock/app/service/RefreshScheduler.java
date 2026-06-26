@@ -10,7 +10,7 @@ import com.stock.app.model.StockData;
  * 使用 Handler + Runnable 实现，兼容 API Level 14
  */
 public class RefreshScheduler {
-    private static final long REFRESH_INTERVAL = 60000; // 60秒
+    private static final long DEFAULT_REFRESH_INTERVAL = 60000; // 默认60秒
 
     private Handler handler;
     private Runnable refreshTask;
@@ -18,6 +18,7 @@ public class RefreshScheduler {
     private StockService stockService;
     private String currentCode;
     private RefreshCallback callback;
+    private long refreshInterval = DEFAULT_REFRESH_INTERVAL;
 
     /**
      * 刷新回调接口
@@ -48,13 +49,32 @@ public class RefreshScheduler {
             public void run() {
                 if (isRunning && currentCode != null && !currentCode.isEmpty()) {
                     doRefresh();
-                    handler.postDelayed(this, REFRESH_INTERVAL);
+                    handler.postDelayed(this, refreshInterval);
                 }
             }
         };
 
         // 立即执行一次
         handler.post(refreshTask);
+    }
+
+    /**
+     * 设置刷新间隔（毫秒）
+     * @param intervalMs 刷新间隔，单位毫秒
+     */
+    public void setInterval(long intervalMs) {
+        if (intervalMs < 1000) {
+            intervalMs = 1000; // 最小1秒
+        }
+        this.refreshInterval = intervalMs;
+    }
+
+    /**
+     * 获取当前刷新间隔（毫秒）
+     * @return 刷新间隔
+     */
+    public long getInterval() {
+        return refreshInterval;
     }
 
     /**
