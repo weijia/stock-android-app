@@ -438,9 +438,6 @@ class StockPriceHandler(BaseHTTPRequestHandler):
     mootdx_provider = MootdxProvider() if MOOTDX_AVAILABLE else None
     tushare_provider = TushareProvider() if TUSHARE_AVAILABLE else None
     
-    # 节点配置存储（内存中，按节点ID存储）
-    node_configs = {}
-    
     def log_message(self, format, *args):
         """自定义日志格式"""
         logger.info("%s - %s", self.address_string(), format % args)
@@ -527,14 +524,6 @@ class StockPriceHandler(BaseHTTPRequestHandler):
                 date = query.get('date', [None])[0]  # 支持 date 参数
                 self._handle_intraday(code, date, start_time)
             
-            # 服务器全局配置
-            elif path == '/api/config':
-                self._handle_server_config(start_time)
-            
-            # 节点配置
-            elif path == '/api/node/config':
-                self._handle_node_config_get(start_time)
-            
             else:
                 self._send_error(404, "接口不存在", self._get_elapsed_ms(start_time))
         
@@ -543,40 +532,6 @@ class StockPriceHandler(BaseHTTPRequestHandler):
             if DEBUG:
                 logger.exception("详细异常信息:")
             self._send_error(500, str(e), self._get_elapsed_ms(start_time))
-    
-    def do_POST(self):
-        """处理 POST 请求"""
-        start_time = time.time()
-        parsed = urlparse(self.path)
-        path = parsed.path
-        
-        self._log_request("POST", path)
-        logger.info(f"POST {path}")
-        
-        try:
-            # 读取请求体
-            content_length = int(self.headers.get('Content-Length', 0))
-            body = self.rfile.read(content_length).decode('utf-8') if content_length > 0 else '{}'
-            
-            # 节点配置更新
-            if path == '/api/node/config':
-                self._handle_node_config_post(body, start_time)
-            else:
-                self._send_error(404, "接口不存在", self._get_elapsed_ms(start_time))
-        
-        except Exception as e:
-            logger.error(f"POST 请求处理异常: {e}")
-            if DEBUG:
-                logger.exception("详细异常信息:")
-            self._send_error(500, str(e), self._get_elapsed_ms(start_time))
-    
-    def do_OPTIONS(self):
-        """处理 OPTIONS 预检请求（CORS）"""
-        self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, X-Node-ID')
-        self.end_headers()
     
     def _get_elapsed_ms(self, start_time):
         """计算处理时间（毫秒）"""
@@ -750,104 +705,6 @@ class StockPriceHandler(BaseHTTPRequestHandler):
         
         self._send_error(503, "分时数据不可用，需要安装 mootdx 并确保通达信服务器可访问", 
                          self._get_elapsed_ms(start_time) if start_time else None)
-    
-    def _handle_server_config(self, start_time=None):
-        """服务器全局配置"""
-        self._send_json(200, {
-            'code': 200,
-            'data': {
-                'server_name': 'stock-android-app',
-                'version': '1.0',
-                'capabilities': ['realtime', 'kline', 'intraday', 'node_config'],
-                'data_sources': ['mootdx', 'tushare'],
-                'supported_markets': ['SH', 'SZ'],
-            },
-            'timestamp': datetime.now().isoformat()
-        }, self._get_elapsed_ms(start_time) if start_time else None)
-    
-    def _handle_node_config_get(self, start_time=None):
-        """获取节点配置（如果不存在则自动创建默认配置）"""
-        node_id = self.headers.get('X-Node-ID', '')
-        if not node_id:
-            self._send_error(400, "缺少 X-Node-ID 请求头", self._get_elapsed_ms(start_time) if start_time else None)
-            return
-        
-        # 如果节点配置不存在，创建默认配置
-        if node_id not in StockPriceHandler.node_configs:
-            StockPriceHandler.node_configs[node_id] = {
-                'node_name': '',
-                'watchlist': {
-                    'stocks': [],
-                    'groups': []
-                },
-                'refresh': {
-                    'realtime_interval_sec': 5,
-                    'auto_refresh': True
-                },
-                'alert': {
-                    'price_change_threshold_pct': 2.0,
-                    'enabled': True,
-                    'quiet_hours': {
-                        'start': '23:00',
-                        'end': '09:00'
-                    }
-                },
-                'display': {
-                    'theme': 'dark',
-                    'decimal_places': 2
-                }
-            }
-            logger.info(f"为节点 {node_id[:8]}... 创建默认配置")
-        
-        config = StockPriceHandler.node_configs[node_id]
-        self._send_json(200, {
-            'code': 200,
-            'data': config,
-            'timestamp': datetime.now().isoformat()
-        }, self._get_elapsed_ms(start_time) if start_time else None)
-    
-    def _handle_node_config_post(self, body, start_time=None):
-        """更新节点配置（增量更新）"""
-        node_id = self.headers.get('X-Node-ID', '')
-        if not node_id:
-            self._send_error(400, "缺少 X-Node-ID 请求头", self._get_elapsed_ms(start_time) if start_time else None)
-            return
-        
-        try:
-            update = json.loads(body)
-            
-            # 确保节点配置存在
-            if node_id not in StockPriceHandler.node_configs:
-                StockPriceHandler.node_configs[node_id] = {
-                    'node_name': '',
-                    'watchlist': {'stocks': [], 'groups': []},
-                    'refresh': {'realtime_interval_sec': 5, 'auto_refresh': True},
-                    'alert': {'price_change_threshold_pct': 2.0, 'enabled': True, 'quiet_hours': {'start': '23:00', 'end': '09:00'}},
-                    'display': {'theme': 'dark', 'decimal_places': 2}
-                }
-            
-            config = StockPriceHandler.node_configs[node_id]
-            
-            # 递归合并更新
-            def deep_merge(base, update):
-                for key, value in update.items():
-                    if isinstance(value, dict) and key in base and isinstance(base[key], dict):
-                        deep_merge(base[key], value)
-                    else:
-                        base[key] = value
-            
-            deep_merge(config, update)
-            
-            self._send_json(200, {
-                'code': 200,
-                'data': config,
-                'timestamp': datetime.now().isoformat()
-            }, self._get_elapsed_ms(start_time) if start_time else None)
-            
-            logger.info(f"节点 {node_id[:8]}... 配置已更新")
-            
-        except json.JSONDecodeError:
-            self._send_error(400, "请求体不是有效的 JSON", self._get_elapsed_ms(start_time) if start_time else None)
 
 
 def get_local_ip():
@@ -1072,8 +929,6 @@ def main():
     logger.info("  - /api/realtime/<code> - 实时行情（示例：000001）")
     logger.info("  - /api/kline/<code>?days=30 - K线数据（示例：000001）")
     logger.info("  - /api/intraday/<code>?date=YYYYMMDD - 分时数据（示例：000001）")
-    logger.info("  - /api/config - 服务器全局配置")
-    logger.info("  - /api/node/config - 节点配置（GET/POST，需 X-Node-ID 请求头）")
     
     try:
         server.serve_forever()
