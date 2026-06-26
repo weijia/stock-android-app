@@ -165,6 +165,17 @@ public class SettingsActivity extends Activity {
                 }
             });
         }
+
+        // 查看调试日志按钮
+        Button btnViewDebugLog = findViewById(R.id.btn_view_debug_log);
+        if (btnViewDebugLog != null) {
+            btnViewDebugLog.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    DebugLogActivity.start(SettingsActivity.this);
+                }
+            });
+        }
     }
 
     /**
