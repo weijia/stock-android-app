@@ -35,7 +35,7 @@ android {
 if (System.getenv("KEYSTORE_PATH") != null && System.getenv("KEYSTORE_PASSWORD") != null) {
     android.signingConfigs {
         release {
-            storeFile file(System.getenv("KEYSTORE_PATH"))
+            storeFile file("app/" + System.getenv("KEYSTORE_PATH"))
             storePassword System.getenv("KEYSTORE_PASSWORD")
             keyAlias System.getenv("KEY_ALIAS") ?: "release"
             keyPassword System.getenv("KEY_PASSWORD") ?: System.getenv("KEYSTORE_PASSWORD")
