@@ -265,6 +265,14 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
     }
 
     private void queryStock() {
+        queryStock(true);
+    }
+
+    /**
+     * 查询股票
+     * @param syncToServer 是否同步到服务器（从服务器配置同步时不应该回写，避免污染服务器配置）
+     */
+    private void queryStock(boolean syncToServer) {
         String code = etStockCode.getText().toString().trim();
 
         // 验证股票代码
@@ -290,7 +298,10 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         fetchIntradayData(code);
         
         // 同步到服务器节点配置（更新关注列表）
-        syncWatchlistToServer(code);
+        // 从服务器配置同步触发的查询不需要回写，避免用旧缓存覆盖服务器配置
+        if (syncToServer) {
+            syncWatchlistToServer(code);
+        }
     }
     
     /**
@@ -347,10 +358,14 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         }
     }
 
-    private void fetchRealtimeData(String code) {
+    private void fetchRealtimeData(final String code) {
         stockService.fetchRealtime(code, new StockService.DataCallback<StockData>() {
             @Override
             public void onSuccess(StockData data) {
+                // 竞态保护：如果用户已切换到其他股票，丢弃过期的回调
+                if (!code.equals(currentCode)) {
+                    return;
+                }
                 updateStockInfo(data);
                 stockInfoPanel.setVisibility(View.VISIBLE);
 
@@ -360,15 +375,22 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
 
             @Override
             public void onFailure(String error) {
+                // 竞态保护：丢弃过期的失败回调
+                if (!code.equals(currentCode)) {
+                    return;
+                }
                 Toast.makeText(MainActivity.this, error, Toast.LENGTH_SHORT).show();
             }
         });
     }
 
-    private void fetchKlineData(String code) {
+    private void fetchKlineData(final String code) {
         stockService.fetchKline(code, 30, new StockService.DataCallback<List<KLineData>>() {
             @Override
             public void onSuccess(List<KLineData> data) {
+                if (!code.equals(currentCode)) {
+                    return;
+                }
                 if (data != null && data.size() > 0) {
                     priceChart.setData(data);
                     chartPanel.setVisibility(View.VISIBLE);  // 显示日K线图区域
@@ -382,10 +404,13 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         });
     }
 
-    private void fetchIntradayData(String code) {
+    private void fetchIntradayData(final String code) {
         stockService.fetchIntraday(code, new StockService.DataCallback<IntradayData>() {
             @Override
             public void onSuccess(IntradayData data) {
+                if (!code.equals(currentCode)) {
+                    return;
+                }
                 if (data != null && data.getData() != null && data.getData().size() > 0) {
                     intradayChart.setData(data);
                     tvIntradayDate.setText(data.getDate());
@@ -558,6 +583,16 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
                     autoQueryLastStock();
                 }
                 configSyncCompleted = true;
+
+                // 节点配置获取失败，15秒后快速重试（不等5分钟定时同步）
+                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (autoConnectCompleted) {
+                            syncNodeConfigFromServer();
+                        }
+                    }
+                }, 15000);
             }
         });
     }
@@ -612,12 +647,13 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
             
             currentCode = serverStock;
             etStockCode.setText(currentCode);
-            queryStock();
+            // 不回写服务器：刚从服务器拿到配置，不需要反向同步
+            queryStock(false);
         } else if (!TextUtils.isEmpty(localLastCode)) {
             // 服务器关注列表为空，使用本地保存的股票
             currentCode = localLastCode;
             etStockCode.setText(currentCode);
-            queryStock();
+            queryStock(false);
             Toast.makeText(this, "服务器关注列表为空，使用本地保存的股票: " + localLastCode, Toast.LENGTH_SHORT).show();
         } else {
             // 没有任何股票，等待用户输入
@@ -833,18 +869,24 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
                         // 自动切换到新的关注股票
                         etStockCode.setText(newStock);
                         currentCode = newStock;
-                        queryStock();
+                        // 不回写服务器：刚从服务器拿到配置，不需要反向同步
+                        queryStock(false);
                         Toast.makeText(MainActivity.this, 
                             "已自动切换到关注股票: " + newStock, 
                             Toast.LENGTH_SHORT).show();
                     }
                 }
                 
-                // 更新刷新间隔（如果有变化）
-                int newInterval = nodeConfigManager.getRefreshIntervalSec();
-                if (newInterval != 5 && refreshScheduler.isRunning()) {
-                    // 注意：RefreshScheduler 目前固定60秒，这里只是记录
-                    // 如需动态调整，需要扩展 RefreshScheduler
+                // 应用刷新间隔配置（从节点配置读取）
+                try {
+                    JSONObject refreshObj = nodeConfig.optJSONObject("refresh");
+                    if (refreshObj != null) {
+                        int intervalSec = refreshObj.optInt("realtime_interval_sec", 5);
+                        long intervalMs = Math.max(1000, Math.min(intervalSec * 1000L, 60000));
+                        refreshScheduler.setInterval(intervalMs);
+                    }
+                } catch (Exception e) {
+                    // 忽略
                 }
             }
 
@@ -855,4 +897,5 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         });
     }
 }
+
 
