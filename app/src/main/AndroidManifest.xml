@@ -41,6 +41,12 @@
             android:label="@string/settings_title"
             android:exported="false" />
 
+        <!-- 调试日志界面 -->
+        <activity
+            android:name=".DebugLogActivity"
+            android:label="调试日志"
+            android:exported="false" />
+
     </application>
 
 </manifest>
