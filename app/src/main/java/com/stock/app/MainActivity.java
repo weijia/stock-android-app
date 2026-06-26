@@ -280,13 +280,8 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
             etStockCode.setText(lastCode);
             currentCode = lastCode;
             
-            // 停止之前的刷新
-            refreshScheduler.stop();
-            
-            // 获取数据
-            fetchRealtimeData(lastCode);
-            fetchKlineData(lastCode);
-            fetchIntradayData(lastCode);
+            // 查询股票
+            queryStock();
             
             Toast.makeText(this, "已自动查询上次股票: " + lastCode, Toast.LENGTH_SHORT).show();
         }
@@ -520,25 +515,6 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         }
 
         Toast.makeText(this, "节点配置已同步", Toast.LENGTH_SHORT).show();
-    }
-
-    /**
-     * 自动查询上次股票
-     */
-    private void autoQueryLastStock() {
-        String lastCode = configManager.getLastCode();
-        if (!TextUtils.isEmpty(lastCode) && FormatUtil.isValidStockCode(lastCode)) {
-            etStockCode.setText(lastCode);
-            currentCode = lastCode;
-            
-            // 停止之前的刷新
-            refreshScheduler.stop();
-            
-            // 查询股票
-            queryStock();
-            
-            Toast.makeText(this, "已自动查询上次股票: " + lastCode, Toast.LENGTH_SHORT).show();
-        }
     }
 
     @Override
