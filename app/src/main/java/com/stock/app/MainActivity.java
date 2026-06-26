@@ -93,7 +93,7 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
     // 节点配置定时同步
     private android.os.Handler nodeConfigSyncHandler;
     private Runnable nodeConfigSyncTask;
-    private static final int NODE_CONFIG_SYNC_INTERVAL = 600000; // 10分钟同步一次节点配置
+    private static final int NODE_CONFIG_SYNC_INTERVAL = 300000; // 5分钟同步一次节点配置（与 API 规范一致）
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -583,6 +583,21 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
             // 解析失败，使用空列表
         }
         
+        // 应用刷新间隔配置（从节点配置读取，默认 5 秒）
+        try {
+            JSONObject refreshObj = config.optJSONObject("refresh");
+            if (refreshObj != null) {
+                int intervalSec = refreshObj.optInt("realtime_interval_sec", 5);
+                // 转换为毫秒并应用（最小 1 秒，最大 60 秒）
+                long intervalMs = Math.max(1000, Math.min(intervalSec * 1000L, 60000));
+                refreshScheduler.setInterval(intervalMs);
+            } else {
+                refreshScheduler.setInterval(5000); // 默认 5 秒
+            }
+        } catch (Exception e) {
+            refreshScheduler.setInterval(5000); // 默认 5 秒
+        }
+        
         String localLastCode = configManager.getLastCode();
         
         if (!watchlist.isEmpty()) {
@@ -840,3 +855,4 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         });
     }
 }
+
