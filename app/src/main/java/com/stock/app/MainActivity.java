@@ -395,6 +395,11 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
     public void onRefreshSuccess(StockData data) {
         tvRefreshing.setVisibility(View.GONE);
         updateStockInfo(data);
+        
+        // 同时刷新分时图数据
+        if (!TextUtils.isEmpty(currentCode)) {
+            fetchIntradayData(currentCode);
+        }
     }
 
     @Override
