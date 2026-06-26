@@ -563,22 +563,36 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
 
     /**
      * 应用节点配置到界面
+     * 服务器配置优先，本地配置作为 fallback
      */
     private void applyNodeConfig(JSONObject config) {
         // 加载关注列表
         java.util.List<String> watchlist = nodeConfigManager.getWatchlistStocks();
+        String localLastCode = configManager.getLastCode();
+        
         if (!watchlist.isEmpty()) {
-            // 设置第一个关注股票为当前查询股票
-            currentCode = watchlist.get(0);
+            // 服务器关注列表优先
+            String serverStock = watchlist.get(0);
+            
+            // 检查是否与本地保存的股票不同
+            if (!TextUtils.isEmpty(localLastCode) && !serverStock.equals(localLastCode)) {
+                // 服务器配置与本地不同，使用服务器配置
+                Toast.makeText(this, "服务器关注股票(" + serverStock + ") 与本地(" + localLastCode + ") 不同，使用服务器配置", Toast.LENGTH_SHORT).show();
+            }
+            
+            currentCode = serverStock;
             etStockCode.setText(currentCode);
-            // 自动查询
             queryStock();
+        } else if (!TextUtils.isEmpty(localLastCode)) {
+            // 服务器关注列表为空，使用本地保存的股票
+            currentCode = localLastCode;
+            etStockCode.setText(currentCode);
+            queryStock();
+            Toast.makeText(this, "服务器关注列表为空，使用本地保存的股票: " + localLastCode, Toast.LENGTH_SHORT).show();
         } else {
-            // 没有关注股票，尝试恢复上次查询
-            autoQueryLastStock();
+            // 没有任何股票，等待用户输入
+            Toast.makeText(this, "节点配置已同步，请输入股票代码", Toast.LENGTH_SHORT).show();
         }
-
-        Toast.makeText(this, "节点配置已同步", Toast.LENGTH_SHORT).show();
     }
 
     @Override
@@ -751,7 +765,7 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
     
     /**
      * 从服务器同步节点配置（定时调用）
-     * 只获取配置，不自动应用（避免打断用户当前操作）
+     * 获取配置并自动应用到界面
      */
     private void syncNodeConfigFromServer() {
         if (!configSyncCompleted) return;
@@ -764,15 +778,22 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
                 // 保存到本地缓存
                 nodeConfigManager.saveServerConfig(nodeConfig);
                 
-                // 检查是否有变化
+                // 检查关注列表是否有变化
                 java.util.List<String> serverWatchlist = nodeConfigManager.getWatchlistStocks();
                 String currentStock = currentCode;
                 
-                // 如果关注列表第一个股票与当前不同，提示用户
-                if (!serverWatchlist.isEmpty() && !serverWatchlist.get(0).equals(currentStock)) {
-                    Toast.makeText(MainActivity.this, 
-                        "服务器关注列表已更新，可切换查看: " + serverWatchlist.get(0), 
-                        Toast.LENGTH_SHORT).show();
+                // 如果关注列表不为空，且第一个股票与当前不同，自动切换
+                if (!serverWatchlist.isEmpty()) {
+                    String newStock = serverWatchlist.get(0);
+                    if (!newStock.equals(currentStock)) {
+                        // 自动切换到新的关注股票
+                        etStockCode.setText(newStock);
+                        currentCode = newStock;
+                        queryStock();
+                        Toast.makeText(MainActivity.this, 
+                            "已自动切换到关注股票: " + newStock, 
+                            Toast.LENGTH_SHORT).show();
+                    }
                 }
                 
                 // 更新刷新间隔（如果有变化）
