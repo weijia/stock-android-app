@@ -384,6 +384,12 @@ public class IntradayChartView extends View {
 
         Path avgPath = new Path();
         boolean pathStarted = false;
+        
+        // 计算累计均价（VWAP）
+        // 均价 = 累计成交金额 / 累计成交量
+        double cumulativeAmount = 0;  // 累计成交金额
+        double cumulativeVolume = 0;  // 累计成交量
+        double lastAvgPrice = 0;
 
         for (int i = 0; i < points.size(); i++) {
             IntradayPoint p = points.get(i);
@@ -391,8 +397,19 @@ public class IntradayChartView extends View {
             int minuteIndex = timeToMinuteIndex(p.getTime());
             if (minuteIndex < 0) continue;
             
+            // 累计计算VWAP
+            cumulativeAmount += p.getPrice() * p.getVolume();
+            cumulativeVolume += p.getVolume();
+            
+            // 计算当前时间点的均价
+            double avgPrice = 0;
+            if (cumulativeVolume > 0) {
+                avgPrice = cumulativeAmount / cumulativeVolume;
+            }
+            lastAvgPrice = avgPrice;
+            
             float x = minuteIndexToX(minuteIndex, chartWidth);
-            float y = paddingTop + (float) ((priceTop - p.getAvgPrice()) / priceRange * chartHeight);
+            float y = paddingTop + (float) ((priceTop - avgPrice) / priceRange * chartHeight);
 
             if (!pathStarted) {
                 avgPath.moveTo(x, y);
@@ -406,10 +423,8 @@ public class IntradayChartView extends View {
             canvas.drawPath(avgPath, avgPaint);
             
             // 绘制均价线的当前值标签
-            IntradayPoint lastPoint = points.get(points.size() - 1);
-            double avgPrice = lastPoint.getAvgPrice();
-            if (avgPrice > 0) {
-                float avgY = paddingTop + (float) ((priceTop - avgPrice) / priceRange * chartHeight);
+            if (lastAvgPrice > 0) {
+                float avgY = paddingTop + (float) ((priceTop - lastAvgPrice) / priceRange * chartHeight);
                 
                 // 均价线标签（使用均价画笔的颜色）
                 Paint avgLabelPaint = new Paint();
@@ -418,7 +433,7 @@ public class IntradayChartView extends View {
                 avgLabelPaint.setAntiAlias(true);
                 avgLabelPaint.setTextAlign(Paint.Align.LEFT);
                 
-                String avgText = "均" + String.format("%.2f", avgPrice);
+                String avgText = "均" + String.format("%.2f", lastAvgPrice);
                 canvas.drawText(avgText, paddingLeft + chartWidth + 3f, avgY + 5f, avgLabelPaint);
             }
         }

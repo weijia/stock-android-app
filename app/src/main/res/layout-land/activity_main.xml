@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 横屏布局：使用 ScrollView 支持滚动 -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:scrollbars="vertical"
+    android:background="@color/background">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <!-- 顶部状态栏 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/tv_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/status_connected"
+                android:textColor="@color/statusConnected"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/tv_refresh_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:textColor="@color/textSecondary"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/tv_refreshing"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="@string/status_refreshing"
+                android:textColor="@color/colorPrimary"
+                android:textSize="12sp"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <!-- 股票代码输入 -->
+        <EditText
+            android:id="@+id/et_stock_code"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="@string/hint_stock_code"
+            android:inputType="number"
+            android:maxLines="1"
+            android:maxLength="6"
+            android:textSize="16sp"
+            android:background="@color/surface"
+            android:padding="10dp" />
+
+        <!-- 查询按钮 -->
+        <Button
+            android:id="@+id/btn_query"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="@string/btn_query"
+            android:textSize="16sp"
+            android:background="@color/colorPrimary"
+            android:textColor="@color/surface" />
+
+        <!-- 股票信息展示区（紧凑布局） -->
+        <LinearLayout
+            android:id="@+id/stock_info_panel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="vertical"
+            android:background="@color/surface"
+            android:padding="10dp"
+            android:visibility="gone">
+
+            <!-- 第一行：股票名称 + 价格 + 涨跌幅 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/tv_stock_name"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/textPrimary" />
+
+                <TextView
+                    android:id="@+id/tv_price"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:textSize="24sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tv_change_pct"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tv_change_amt"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:textSize="12sp"
+                    android:textColor="@color/textSecondary" />
+            </LinearLayout>
+
+            <!-- 详细数据网格（紧凑布局，一行两项） -->
+            <GridLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:columnCount="4"
+                android:rowCount="3">
+
+                <!-- 第一行：开盘 值 最高 值 -->
+                <TextView
+                    android:text="@string/label_open"
+                    android:textColor="@color/textSecondary"
+                    android:textSize="11sp"
+                    android:layout_columnWeight="0" />
+
+                <TextView
+                    android:id="@+id/tv_open"
+                    android:textColor="@color/textPrimary"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:layout_columnWeight="1" />
+
+                <TextView
+                    android:text="@string/label_high"
+                    android:textColor="@color/textSecondary"
+                    android:textSize="11sp"
+                    android:layout_columnWeight="0" />
+
+                <TextView
+                    android:id="@+id/tv_high"
+                    android:textColor="@color/textPrimary"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:layout_columnWeight="1" />
+
+                <!-- 第二行：最低 值 昨收 值 -->
+                <TextView
+                    android:text="@string/label_low"
+                    android:textColor="@color/textSecondary"
+                    android:textSize="11sp"
+                    android:layout_columnWeight="0" />
+
+                <TextView
+                    android:id="@+id/tv_low"
+                    android:textColor="@color/textPrimary"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:layout_columnWeight="1" />
+
+                <TextView
+                    android:text="@string/label_last_close"
+                    android:textColor="@color/textSecondary"
+                    android:textSize="11sp"
+                    android:layout_columnWeight="0" />
+
+                <TextView
+                    android:id="@+id/tv_last_close"
+                    android:textColor="@color/textPrimary"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:layout_columnWeight="1" />
+
+                <!-- 第三行：成交量 值 成交额 值 -->
+                <TextView
+                    android:text="@string/label_volume"
+                    android:textColor="@color/textSecondary"
+                    android:textSize="11sp"
+                    android:layout_columnWeight="0" />
+
+                <TextView
+                    android:id="@+id/tv_volume"
+                    android:textColor="@color/textPrimary"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:layout_columnWeight="1" />
+
+                <TextView
+                    android:text="@string/label_amount"
+                    android:textColor="@color/textSecondary"
+                    android:textSize="11sp"
+                    android:layout_columnWeight="0" />
+
+                <TextView
+                    android:id="@+id/tv_amount"
+                    android:textColor="@color/textPrimary"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:layout_columnWeight="1" />
+            </GridLayout>
+        </LinearLayout>
+
+        <!-- 分时图区域（横屏固定高度，可滚动） -->
+        <LinearLayout
+            android:id="@+id/intraday_panel"
+            android:layout_width="match_parent"
+            android:layout_height="300dp"
+            android:layout_marginTop="8dp"
+            android:orientation="vertical"
+            android:background="@color/surface"
+            android:padding="6dp"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/tv_intraday_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="分时图"
+                    android:textColor="@color/textPrimary"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tv_intraday_date"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:textColor="@color/textSecondary"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <com.stock.app.view.IntradayChartView
+                android:id="@+id/intraday_chart"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginTop="2dp" />
+        </LinearLayout>
+
+        <!-- 日K线图区域（横屏固定高度，可滚动） -->
+        <LinearLayout
+            android:id="@+id/chart_panel"
+            android:layout_width="match_parent"
+            android:layout_height="250dp"
+            android:layout_marginTop="8dp"
+            android:orientation="vertical"
+            android:background="@color/surface"
+            android:padding="6dp"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="日K线图"
+                android:textColor="@color/textPrimary"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <com.stock.app.view.PriceChartView
+                android:id="@+id/price_chart"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginTop="2dp" />
+        </LinearLayout>
+
+        <!-- 底部设置按钮 -->
+        <Button
+            android:id="@+id/btn_settings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/btn_settings"
+            android:textSize="16sp"
+            android:background="@color/textSecondary"
+            android:textColor="@color/surface" />
+
+    </LinearLayout>
+</ScrollView>
