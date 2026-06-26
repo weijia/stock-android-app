@@ -566,8 +566,22 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
      * 服务器配置优先，本地配置作为 fallback
      */
     private void applyNodeConfig(JSONObject config) {
-        // 加载关注列表
-        java.util.List<String> watchlist = nodeConfigManager.getWatchlistStocks();
+        // 直接从传入的 config 解析关注列表（避免 SharedPreferences 异步保存延迟）
+        java.util.List<String> watchlist = new java.util.ArrayList<>();
+        try {
+            JSONObject watchlistObj = config.optJSONObject("watchlist");
+            if (watchlistObj != null) {
+                org.json.JSONArray stocks = watchlistObj.optJSONArray("stocks");
+                if (stocks != null) {
+                    for (int i = 0; i < stocks.length(); i++) {
+                        watchlist.add(stocks.getString(i));
+                    }
+                }
+            }
+        } catch (org.json.JSONException e) {
+            // 解析失败，使用空列表
+        }
+        
         String localLastCode = configManager.getLastCode();
         
         if (!watchlist.isEmpty()) {
@@ -778,8 +792,22 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
                 // 保存到本地缓存
                 nodeConfigManager.saveServerConfig(nodeConfig);
                 
-                // 检查关注列表是否有变化
-                java.util.List<String> serverWatchlist = nodeConfigManager.getWatchlistStocks();
+                // 直接从返回的 config 解析关注列表（避免 SharedPreferences 异步保存延迟）
+                java.util.List<String> serverWatchlist = new java.util.ArrayList<>();
+                try {
+                    JSONObject watchlistObj = nodeConfig.optJSONObject("watchlist");
+                    if (watchlistObj != null) {
+                        org.json.JSONArray stocks = watchlistObj.optJSONArray("stocks");
+                        if (stocks != null) {
+                            for (int i = 0; i < stocks.length(); i++) {
+                                serverWatchlist.add(stocks.getString(i));
+                            }
+                        }
+                    }
+                } catch (org.json.JSONException e) {
+                    // 解析失败
+                }
+                
                 String currentStock = currentCode;
                 
                 // 如果关注列表不为空，且第一个股票与当前不同，自动切换
