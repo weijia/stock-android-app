@@ -229,6 +229,31 @@
             android:layout_marginTop="24dp"
             android:background="@color/chartGrid" />
 
+        <!-- 调试日志 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="调试"
+            android:textColor="@color/textSecondary"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/btn_view_debug_log"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="查看调试日志"
+            android:background="#6c757d"
+            android:textColor="@color/surface" />
+
+        <!-- 分隔线 -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="24dp"
+            android:background="@color/chartGrid" />
+
         <!-- 保存按钮 -->
         <Button
             android:id="@+id/btn_save"
