@@ -62,7 +62,7 @@ jobs:
         if [ -n "$KEYSTORE_BASE64" ]; then
           echo "Building Release APK with keystore..."
           echo "$KEYSTORE_BASE64" | base64 -d > app/release-key.jks
-          export KEYSTORE_PATH=app/release-key.jks
+          export KEYSTORE_PATH=release-key.jks
           gradle assembleRelease
           echo "APK_TYPE=release" >> $GITHUB_ENV
         else
