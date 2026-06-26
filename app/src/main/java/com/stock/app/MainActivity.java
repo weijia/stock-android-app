@@ -90,6 +90,11 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
     private static final int BURN_IN_INTERVAL = 60000; // 60秒执行一次防烧屏偏移
     private static final int BURN_IN_MAX_OFFSET = 3;   // 最大偏移3像素
 
+    // 节点配置定时同步
+    private android.os.Handler nodeConfigSyncHandler;
+    private Runnable nodeConfigSyncTask;
+    private static final int NODE_CONFIG_SYNC_INTERVAL = 600000; // 10分钟同步一次节点配置
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -129,6 +134,9 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         
         // 启动防烧屏保护
         startBurnInProtection();
+        
+        // 启动节点配置定时同步
+        startNodeConfigSync();
     }
     
     /**
@@ -614,6 +622,9 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         // 停止防烧屏保护
         stopBurnInProtection();
         
+        // 停止节点配置定时同步
+        stopNodeConfigSync();
+        
         // 保存配置到外部存储
         saveConfigToExternalStorage();
         
@@ -704,5 +715,78 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         if (intradayPanel != null && intradayPanel.getVisibility() == View.VISIBLE) {
             intradayPanel.setTranslationY(offset * 0.5f);
         }
+    }
+    
+    // ==================== 节点配置定时同步 ====================
+    
+    /**
+     * 启动节点配置定时同步
+     * 每10分钟从服务器同步节点配置
+     */
+    private void startNodeConfigSync() {
+        nodeConfigSyncHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+        
+        nodeConfigSyncTask = new Runnable() {
+            @Override
+            public void run() {
+                if (configSyncCompleted && autoConnectCompleted) {
+                    syncNodeConfigFromServer();
+                }
+                nodeConfigSyncHandler.postDelayed(this, NODE_CONFIG_SYNC_INTERVAL);
+            }
+        };
+        
+        // 首次同步延迟5分钟（避免与初始同步冲突）
+        nodeConfigSyncHandler.postDelayed(nodeConfigSyncTask, 300000);
+    }
+    
+    /**
+     * 停止节点配置定时同步
+     */
+    private void stopNodeConfigSync() {
+        if (nodeConfigSyncHandler != null && nodeConfigSyncTask != null) {
+            nodeConfigSyncHandler.removeCallbacks(nodeConfigSyncTask);
+        }
+    }
+    
+    /**
+     * 从服务器同步节点配置（定时调用）
+     * 只获取配置，不自动应用（避免打断用户当前操作）
+     */
+    private void syncNodeConfigFromServer() {
+        if (!configSyncCompleted) return;
+        
+        final String nodeId = nodeIdentityManager.getNodeId();
+        
+        stockService.fetchNodeConfig(nodeId, new StockService.DataCallback<JSONObject>() {
+            @Override
+            public void onSuccess(JSONObject nodeConfig) {
+                // 保存到本地缓存
+                nodeConfigManager.saveServerConfig(nodeConfig);
+                
+                // 检查是否有变化
+                java.util.List<String> serverWatchlist = nodeConfigManager.getWatchlistStocks();
+                String currentStock = currentCode;
+                
+                // 如果关注列表第一个股票与当前不同，提示用户
+                if (!serverWatchlist.isEmpty() && !serverWatchlist.get(0).equals(currentStock)) {
+                    Toast.makeText(MainActivity.this, 
+                        "服务器关注列表已更新，可切换查看: " + serverWatchlist.get(0), 
+                        Toast.LENGTH_SHORT).show();
+                }
+                
+                // 更新刷新间隔（如果有变化）
+                int newInterval = nodeConfigManager.getRefreshIntervalSec();
+                if (newInterval != 5 && refreshScheduler.isRunning()) {
+                    // 注意：RefreshScheduler 目前固定60秒，这里只是记录
+                    // 如需动态调整，需要扩展 RefreshScheduler
+                }
+            }
+
+            @Override
+            public void onFailure(String error) {
+                // 同步失败，静默处理，保持本地配置
+            }
+        });
     }
 }
