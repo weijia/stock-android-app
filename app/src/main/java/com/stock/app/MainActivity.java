@@ -269,6 +269,47 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         
         // 获取分时数据
         fetchIntradayData(code);
+        
+        // 同步到服务器节点配置（更新关注列表）
+        syncWatchlistToServer(code);
+    }
+    
+    /**
+     * 同步关注列表到服务器
+     */
+    private void syncWatchlistToServer(String code) {
+        if (!configSyncCompleted) return;
+        
+        final String nodeId = nodeIdentityManager.getNodeId();
+        
+        // 构建关注列表更新（将当前股票添加到关注列表）
+        java.util.List<String> watchlist = new java.util.ArrayList<>();
+        watchlist.add(code);
+        
+        // 也可以保留之前的关注股票
+        java.util.List<String> existingWatchlist = nodeConfigManager.getWatchlistStocks();
+        for (String existing : existingWatchlist) {
+            if (!existing.equals(code) && !watchlist.contains(existing)) {
+                watchlist.add(existing);
+            }
+        }
+        
+        JSONObject update = nodeConfigManager.buildWatchlistUpdate(watchlist);
+        
+        stockService.updateNodeConfig(nodeId, update, new StockService.DataCallback<JSONObject>() {
+            @Override
+            public void onSuccess(JSONObject data) {
+                // 更新本地缓存
+                nodeConfigManager.saveServerConfig(data);
+                nodeConfigManager.setPendingSync(false);
+            }
+
+            @Override
+            public void onFailure(String error) {
+                // 标记有待同步的配置，下次连接时重试
+                nodeConfigManager.setPendingSync(true);
+            }
+        });
     }
     
     /**
