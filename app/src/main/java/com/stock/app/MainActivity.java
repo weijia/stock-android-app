@@ -26,6 +26,7 @@ import com.stock.app.util.ExternalStorageManager;
 import com.stock.app.util.FormatUtil;
 import com.stock.app.util.NodeConfigManager;
 import com.stock.app.util.NodeIdentityManager;
+import com.stock.app.util.DebugLogger;
 import com.stock.app.view.IntradayChartView;
 import com.stock.app.view.PriceChartView;
 import com.stock.app.view.VolumeChartView;
@@ -70,6 +71,9 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
     private RefreshScheduler refreshScheduler;
     private AutoConnectManager autoConnectManager;
 
+    // 调试日志
+    private DebugLogger debugLogger;
+
     // 节点配置管理
     private NodeIdentityManager nodeIdentityManager;
     private NodeConfigManager nodeConfigManager;
@@ -100,6 +104,10 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // 初始化调试日志
+        debugLogger = DebugLogger.getInstance(this);
+        debugLogger.log("App", "=== APP 启动 ===");
+
         // 初始化外部存储管理器
         externalStorageManager = new ExternalStorageManager(this);
 
@@ -113,6 +121,9 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         // 从外部存储加载配置（必须在 configManager 初始化之后）
         loadConfigFromExternalStorage();
         
+        debugLogger.log("App", "服务器配置: " + configManager.getServerIp() + ":" + configManager.getServerPort());
+        debugLogger.log("App", "本地 lastCode: " + configManager.getLastCode());
+
         stockService = new StockService(configManager);
         refreshScheduler = new RefreshScheduler(stockService);
         autoConnectManager = new AutoConnectManager(this, configManager, stockService);
@@ -144,6 +155,7 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
      * 开始自动连接流程
      */
     private void startAutoConnect() {
+        debugLogger.log("Connect", "开始自动连接，目标: " + configManager.getServerIp() + ":" + configManager.getServerPort());
         tvStatus.setText("正在连接服务器...");
         tvStatus.setTextColor(Color.parseColor("#0d6efd"));
         autoConnectManager.startAutoConnect();
@@ -274,6 +286,7 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
      */
     private void queryStock(boolean syncToServer) {
         String code = etStockCode.getText().toString().trim();
+        debugLogger.log("Query", "queryStock: code=" + code + ", syncToServer=" + syncToServer + ", currentCode=" + currentCode);
 
         // 验证股票代码
         if (!FormatUtil.isValidStockCode(code)) {
@@ -361,13 +374,16 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
     }
 
     private void fetchRealtimeData(final String code) {
+        debugLogger.log("Query", "fetchRealtimeData: 请求 " + code);
         stockService.fetchRealtime(code, new StockService.DataCallback<StockData>() {
             @Override
             public void onSuccess(StockData data) {
                 // 竞态保护：如果用户已切换到其他股票，丢弃过期的回调
                 if (!code.equals(currentCode)) {
+                    debugLogger.warn("Query", "fetchRealtimeData: 丢弃过期回调 " + code);
                     return;
                 }
+                debugLogger.log("Query", "fetchRealtimeData: 成功 " + code + " price=" + data.getPrice());
                 updateStockInfo(data);
                 stockInfoPanel.setVisibility(View.VISIBLE);
 
@@ -381,6 +397,7 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
                 if (!code.equals(currentCode)) {
                     return;
                 }
+                debugLogger.error("Query", "fetchRealtimeData: 失败 " + code + " error=" + error);
                 Toast.makeText(MainActivity.this, error, Toast.LENGTH_SHORT).show();
             }
         });
@@ -499,6 +516,7 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
 
     @Override
     public void onConnected(String serverIp, int serverPort) {
+        debugLogger.log("Connect", "连接成功: " + serverIp + ":" + serverPort);
         tvStatus.setText(R.string.status_connected);
         tvStatus.setTextColor(Color.parseColor("#20c997"));
         autoConnectCompleted = true;
@@ -522,6 +540,7 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
 
     @Override
     public void onConnectionFailed(String error) {
+        debugLogger.error("Connect", "连接失败: " + error);
         tvStatus.setText(R.string.status_disconnected);
         tvStatus.setTextColor(Color.parseColor("#dc3545"));
         autoConnectCompleted = true;
@@ -539,20 +558,26 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
      * 流程：获取服务器配置 → 获取节点配置 → 应用到界面
      */
     private void syncNodeConfig() {
+        debugLogger.log("ConfigSync", "syncNodeConfig 开始，configSyncCompleted=" + configSyncCompleted);
         if (configSyncCompleted) return;
 
         final String nodeId = nodeIdentityManager.getNodeId();
+        debugLogger.log("ConfigSync", "NodeID: " + nodeId);
+        debugLogger.log("ConfigSync", "是否新节点: " + nodeIdentityManager.isNewNode());
 
         // 步骤 1：获取服务器全局配置
+        debugLogger.log("ConfigSync", "步骤1: GET /api/config");
         stockService.fetchServerConfig(new StockService.DataCallback<JSONObject>() {
             @Override
             public void onSuccess(JSONObject serverConfig) {
+                debugLogger.log("ConfigSync", "步骤1成功: /api/config 返回");
                 // 步骤 2：获取节点配置
                 fetchNodeConfigAndApply(nodeId);
             }
 
             @Override
             public void onFailure(String error) {
+                debugLogger.warn("ConfigSync", "步骤1失败: /api/config 错误: " + error);
                 // 服务器配置获取失败，继续获取节点配置
                 fetchNodeConfigAndApply(nodeId);
             }
@@ -563,9 +588,11 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
      * 获取节点配置并应用到界面
      */
     private void fetchNodeConfigAndApply(final String nodeId) {
+        debugLogger.log("ConfigSync", "步骤2: GET /api/node/config (X-Node-ID: " + nodeId + ")");
         stockService.fetchNodeConfig(nodeId, new StockService.DataCallback<JSONObject>() {
             @Override
             public void onSuccess(JSONObject nodeConfig) {
+                debugLogger.log("ConfigSync", "步骤2成功: /api/node/config 返回: " + nodeConfig.toString());
                 // 保存到本地缓存
                 nodeConfigManager.saveServerConfig(nodeConfig);
                 configSyncCompleted = true;
@@ -576,6 +603,7 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
 
             @Override
             public void onFailure(String error) {
+                debugLogger.error("ConfigSync", "步骤2失败: /api/node/config 错误: " + error);
                 // 节点配置获取失败，记录详细错误信息便于诊断
                 android.util.Log.e("MainActivity", "fetchNodeConfig 失败: " + error);
                 Toast.makeText(MainActivity.this, "节点配置获取失败: " + error, Toast.LENGTH_LONG).show();
@@ -608,6 +636,8 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
      * 服务器配置优先，本地配置作为 fallback
      */
     private void applyNodeConfig(JSONObject config) {
+        debugLogger.log("ConfigSync", "applyNodeConfig: 开始解析配置");
+        debugLogger.log("ConfigSync", "applyNodeConfig: 原始 config = " + config.toString());
         // 直接从传入的 config 解析关注列表（避免 SharedPreferences 异步保存延迟）
         java.util.List<String> watchlist = new java.util.ArrayList<>();
         try {
@@ -621,9 +651,11 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
                 }
             }
         } catch (org.json.JSONException e) {
-            // 解析失败，使用空列表
+            debugLogger.error("ConfigSync", "applyNodeConfig: watchlist 解析异常: " + e.getMessage());
         }
-        
+
+        debugLogger.log("ConfigSync", "applyNodeConfig: 解析到 watchlist stocks = " + watchlist);
+
         // 应用刷新间隔配置（从节点配置读取，默认 5 秒）
         try {
             JSONObject refreshObj = config.optJSONObject("refresh");
@@ -644,6 +676,7 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         if (!watchlist.isEmpty()) {
             // 服务器关注列表优先
             String serverStock = watchlist.get(0);
+            debugLogger.log("ConfigSync", "applyNodeConfig: 服务器股票=" + serverStock + ", 本地 lastCode=" + localLastCode);
             
             // 检查是否与本地保存的股票不同
             if (!TextUtils.isEmpty(localLastCode) && !serverStock.equals(localLastCode)) {
@@ -653,10 +686,12 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
             
             currentCode = serverStock;
             etStockCode.setText(currentCode);
+            debugLogger.log("ConfigSync", "applyNodeConfig: 使用服务器股票 " + serverStock + "，调用 queryStock(false)");
             // 不回写服务器：刚从服务器拿到配置，不需要反向同步
             queryStock(false);
         } else if (!TextUtils.isEmpty(localLastCode)) {
             // 服务器关注列表为空，使用本地保存的股票
+            debugLogger.warn("ConfigSync", "applyNodeConfig: 服务器 watchlist 为空，使用本地股票: " + localLastCode);
             currentCode = localLastCode;
             etStockCode.setText(currentCode);
             queryStock(false);
@@ -840,13 +875,16 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
      * 获取配置并自动应用到界面
      */
     private void syncNodeConfigFromServer() {
+        debugLogger.log("ConfigSync", "syncNodeConfigFromServer: 定时同步开始");
         if (!configSyncCompleted) return;
         
         final String nodeId = nodeIdentityManager.getNodeId();
+        debugLogger.log("ConfigSync", "syncNodeConfigFromServer: NodeID=" + nodeId + ", currentCode=" + currentCode);
         
         stockService.fetchNodeConfig(nodeId, new StockService.DataCallback<JSONObject>() {
             @Override
             public void onSuccess(JSONObject nodeConfig) {
+                debugLogger.log("ConfigSync", "syncNodeConfigFromServer: 成功, config=" + nodeConfig.toString());
                 // 保存到本地缓存
                 nodeConfigManager.saveServerConfig(nodeConfig);
                 
@@ -873,6 +911,7 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
                     String newStock = serverWatchlist.get(0);
                     if (!newStock.equals(currentStock)) {
                         // 自动切换到新的关注股票
+                        debugLogger.log("ConfigSync", "syncNodeConfigFromServer: 服务器股票变更 " + currentStock + " -> " + newStock);
                         etStockCode.setText(newStock);
                         currentCode = newStock;
                         // 不回写服务器：刚从服务器拿到配置，不需要反向同步
@@ -883,6 +922,11 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
                     }
                 }
                 
+                // 如果没进入上面的 if，说明股票没变
+                if (!serverWatchlist.isEmpty() && serverWatchlist.get(0).equals(currentStock)) {
+                    debugLogger.log("ConfigSync", "syncNodeConfigFromServer: 服务器股票与当前一致(" + currentStock + ")，不切换");
+                }
+
                 // 应用刷新间隔配置（从节点配置读取）
                 try {
                     JSONObject refreshObj = nodeConfig.optJSONObject("refresh");
@@ -898,11 +942,12 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
 
             @Override
             public void onFailure(String error) {
-                // 同步失败，记录日志便于诊断，保持本地配置
+                debugLogger.warn("ConfigSync", "syncNodeConfigFromServer: 失败: " + error);
                 android.util.Log.w("MainActivity", "syncNodeConfigFromServer 失败: " + error);
             }
         });
     }
 }
+
 
 
