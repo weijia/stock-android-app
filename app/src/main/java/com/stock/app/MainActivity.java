@@ -102,9 +102,6 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
 
         // 初始化外部存储管理器
         externalStorageManager = new ExternalStorageManager(this);
-        
-        // 从外部存储加载配置
-        loadConfigFromExternalStorage();
 
         // 初始化节点身份和配置管理
         nodeIdentityManager = new NodeIdentityManager(this);
@@ -112,6 +109,10 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
 
         // 初始化配置和服务
         configManager = new ConfigManager(this);
+        
+        // 从外部存储加载配置（必须在 configManager 初始化之后）
+        loadConfigFromExternalStorage();
+        
         stockService = new StockService(configManager);
         refreshScheduler = new RefreshScheduler(stockService);
         autoConnectManager = new AutoConnectManager(this, configManager, stockService);
