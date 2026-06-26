@@ -404,6 +404,23 @@ public class IntradayChartView extends View {
 
         if (pathStarted) {
             canvas.drawPath(avgPath, avgPaint);
+            
+            // 绘制均价线的当前值标签
+            IntradayPoint lastPoint = points.get(points.size() - 1);
+            double avgPrice = lastPoint.getAvgPrice();
+            if (avgPrice > 0) {
+                float avgY = paddingTop + (float) ((priceTop - avgPrice) / priceRange * chartHeight);
+                
+                // 均价线标签（使用均价画笔的颜色）
+                Paint avgLabelPaint = new Paint();
+                avgLabelPaint.setColor(Color.parseColor("#ff9800"));
+                avgLabelPaint.setTextSize(12f);
+                avgLabelPaint.setAntiAlias(true);
+                avgLabelPaint.setTextAlign(Paint.Align.LEFT);
+                
+                String avgText = "均" + String.format("%.2f", avgPrice);
+                canvas.drawText(avgText, paddingLeft + chartWidth + 3f, avgY + 5f, avgLabelPaint);
+            }
         }
     }
 
