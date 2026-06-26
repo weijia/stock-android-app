@@ -80,6 +80,14 @@ public class ConfigManager {
     }
 
     /**
+     * 获取服务器地址（等同于 getBaseUrl）
+     * @return URL 字符串
+     */
+    public String getServerAddress() {
+        return getBaseUrl();
+    }
+
+    /**
      * 获取实时行情 API URL
      * @param code 股票代码
      * @return URL 字符串
