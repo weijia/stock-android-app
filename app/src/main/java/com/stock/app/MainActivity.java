@@ -83,6 +83,13 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
     // 是否已完成配置同步
     private boolean configSyncCompleted = false;
 
+    // 防烧屏相关
+    private android.os.Handler burnInProtectionHandler;
+    private Runnable burnInProtectionTask;
+    private int burnInOffset = 0;
+    private static final int BURN_IN_INTERVAL = 60000; // 60秒执行一次防烧屏偏移
+    private static final int BURN_IN_MAX_OFFSET = 3;   // 最大偏移3像素
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -119,6 +126,9 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         
         // 开始自动连接
         startAutoConnect();
+        
+        // 启动防烧屏保护
+        startBurnInProtection();
     }
     
     /**
@@ -601,6 +611,9 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
     protected void onDestroy() {
         super.onDestroy();
         
+        // 停止防烧屏保护
+        stopBurnInProtection();
+        
         // 保存配置到外部存储
         saveConfigToExternalStorage();
         
@@ -619,6 +632,77 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
             Toast.makeText(this, "已选择外部存储目录，配置将保存到该目录", Toast.LENGTH_SHORT).show();
             // 立即保存当前配置
             saveConfigToExternalStorage();
+        }
+    }
+    
+    // ==================== 防烧屏保护 ====================
+    
+    /**
+     * 启动防烧屏保护
+     * 定期对关键UI元素进行轻微位置偏移，防止OLED屏幕烧屏
+     */
+    private void startBurnInProtection() {
+        burnInProtectionHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+        
+        burnInProtectionTask = new Runnable() {
+            @Override
+            public void run() {
+                applyBurnInOffset();
+                burnInProtectionHandler.postDelayed(this, BURN_IN_INTERVAL);
+            }
+        };
+        
+        // 启动定时任务
+        burnInProtectionHandler.post(burnInProtectionTask);
+    }
+    
+    /**
+     * 停止防烧屏保护
+     */
+    private void stopBurnInProtection() {
+        if (burnInProtectionHandler != null && burnInProtectionTask != null) {
+            burnInProtectionHandler.removeCallbacks(burnInProtectionTask);
+        }
+    }
+    
+    /**
+     * 应用防烧屏偏移
+     * 对价格、涨跌幅等长时间显示的文本进行轻微位置偏移
+     */
+    private void applyBurnInOffset() {
+        // 计算偏移值：交替使用正负偏移
+        burnInOffset = (burnInOffset + 1) % (BURN_IN_MAX_OFFSET * 2 + 1);
+        int offset = burnInOffset - BURN_IN_MAX_OFFSET; // -3 到 +3
+        
+        // 对关键显示元素应用偏移
+        if (tvPrice != null) {
+            tvPrice.setTranslationY(offset);
+        }
+        if (tvChangePct != null) {
+            tvChangePct.setTranslationY(-offset); // 反向偏移
+        }
+        if (tvChangeAmt != null) {
+            tvChangeAmt.setTranslationY(offset);
+        }
+        if (tvStockName != null) {
+            tvStockName.setTranslationY(-offset);
+        }
+        if (tvRefreshTime != null) {
+            tvRefreshTime.setTranslationX(offset);
+        }
+        if (tvStatus != null) {
+            tvStatus.setTranslationX(-offset);
+        }
+        
+        // 对图表区域应用轻微偏移
+        if (stockInfoPanel != null && stockInfoPanel.getVisibility() == View.VISIBLE) {
+            stockInfoPanel.setTranslationY(offset * 0.5f);
+        }
+        if (chartPanel != null && chartPanel.getVisibility() == View.VISIBLE) {
+            chartPanel.setTranslationY(-offset * 0.5f);
+        }
+        if (intradayPanel != null && intradayPanel.getVisibility() == View.VISIBLE) {
+            intradayPanel.setTranslationY(offset * 0.5f);
         }
     }
 }
