@@ -343,17 +343,19 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
     }
     
     /**
-     * 自动查询上次保存的股票
+     * 自动查询上次保存的股票（本地 fallback）
+     * 注意：不回写服务器配置，避免用本地旧股票污染服务器 watchlist。
+     * 服务器配置同步成功后会自动切换到正确的股票。
      */
     private void autoQueryLastStock() {
         String lastCode = configManager.getLastCode();
         if (!TextUtils.isEmpty(lastCode) && FormatUtil.isValidStockCode(lastCode)) {
             etStockCode.setText(lastCode);
             currentCode = lastCode;
-            
-            // 查询股票
-            queryStock();
-            
+
+            // 查询股票（不回写服务器：这只是本地 fallback，等服务器配置同步后自动切换）
+            queryStock(false);
+
             Toast.makeText(this, "已自动查询上次股票: " + lastCode, Toast.LENGTH_SHORT).show();
         }
     }
@@ -574,12 +576,16 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
 
             @Override
             public void onFailure(String error) {
+                // 节点配置获取失败，记录详细错误信息便于诊断
+                android.util.Log.e("MainActivity", "fetchNodeConfig 失败: " + error);
+                Toast.makeText(MainActivity.this, "节点配置获取失败: " + error, Toast.LENGTH_LONG).show();
+
                 // 节点配置获取失败，使用本地缓存或默认配置
                 JSONObject cachedConfig = nodeConfigManager.getServerConfig();
                 if (cachedConfig != null) {
                     applyNodeConfig(cachedConfig);
                 } else {
-                    // 没有缓存，查询上次股票
+                    // 没有缓存，查询上次股票（不回写服务器，避免污染配置）
                     autoQueryLastStock();
                 }
                 configSyncCompleted = true;
@@ -892,7 +898,8 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
 
             @Override
             public void onFailure(String error) {
-                // 同步失败，静默处理，保持本地配置
+                // 同步失败，记录日志便于诊断，保持本地配置
+                android.util.Log.w("MainActivity", "syncNodeConfigFromServer 失败: " + error);
             }
         });
     }
