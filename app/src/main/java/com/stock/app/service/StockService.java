@@ -227,6 +227,131 @@ public class StockService {
         });
     }
 
+    // ==================== 服务器配置接口 ====================
+
+    /**
+     * 获取服务器全局配置（能力、限制、数据源）
+     */
+    public void fetchServerConfig(final DataCallback<org.json.JSONObject> callback) {
+        executorService.execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    String url = configManager.getServerAddress() + "/api/config";
+                    String response = httpClient.get(url);
+                    org.json.JSONObject root = new org.json.JSONObject(response);
+                    int code = root.getInt("code");
+                    if (code == 200) {
+                        final org.json.JSONObject data = root.getJSONObject("data");
+                        mainHandler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                callback.onSuccess(data);
+                            }
+                        });
+                    } else {
+                        mainHandler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                callback.onFailure("服务器配置获取失败: code=" + code);
+                            }
+                        });
+                    }
+                } catch (Exception e) {
+                    mainHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            callback.onFailure("服务器配置获取失败: " + e.getMessage());
+                        }
+                    });
+                }
+            }
+        });
+    }
+
+    // ==================== 节点配置接口 ====================
+
+    /**
+     * 获取节点配置（首次自动创建）
+     */
+    public void fetchNodeConfig(String nodeId, final DataCallback<org.json.JSONObject> callback) {
+        executorService.execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    String url = configManager.getServerAddress() + "/api/node/config";
+                    String response = httpClient.getWithHeader(url, "X-Node-ID", nodeId);
+                    org.json.JSONObject root = new org.json.JSONObject(response);
+                    int code = root.getInt("code");
+                    if (code == 200) {
+                        final org.json.JSONObject data = root.getJSONObject("data");
+                        mainHandler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                callback.onSuccess(data);
+                            }
+                        });
+                    } else {
+                        mainHandler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                callback.onFailure("节点配置获取失败: code=" + code);
+                            }
+                        });
+                    }
+                } catch (Exception e) {
+                    mainHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            callback.onFailure("节点配置获取失败: " + e.getMessage());
+                        }
+                    });
+                }
+            }
+        });
+    }
+
+    /**
+     * 更新节点配置（增量）
+     */
+    public void updateNodeConfig(String nodeId, org.json.JSONObject partialConfig, final DataCallback<org.json.JSONObject> callback) {
+        executorService.execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    String url = configManager.getServerAddress() + "/api/node/config";
+                    String body = partialConfig.toString();
+                    String response = httpClient.postWithHeader(url, body, "X-Node-ID", nodeId);
+                    org.json.JSONObject root = new org.json.JSONObject(response);
+                    int code = root.getInt("code");
+                    if (code == 200) {
+                        final org.json.JSONObject data = root.getJSONObject("data");
+                        mainHandler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                callback.onSuccess(data);
+                            }
+                        });
+                    } else {
+                        mainHandler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                callback.onFailure("节点配置更新失败: code=" + code);
+                            }
+                        });
+                    }
+                } catch (Exception e) {
+                    mainHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            callback.onFailure("节点配置更新失败: " + e.getMessage());
+                        }
+                    });
+                }
+            }
+        });
+    }
+
     /**
      * 关闭服务，释放资源
      */

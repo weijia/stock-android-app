@@ -24,6 +24,8 @@ import com.stock.app.service.StockService;
 import com.stock.app.util.ConfigManager;
 import com.stock.app.util.ExternalStorageManager;
 import com.stock.app.util.FormatUtil;
+import com.stock.app.util.NodeConfigManager;
+import com.stock.app.util.NodeIdentityManager;
 import com.stock.app.view.IntradayChartView;
 import com.stock.app.view.PriceChartView;
 import com.stock.app.view.VolumeChartView;
@@ -68,11 +70,18 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
     private RefreshScheduler refreshScheduler;
     private AutoConnectManager autoConnectManager;
 
+    // 节点配置管理
+    private NodeIdentityManager nodeIdentityManager;
+    private NodeConfigManager nodeConfigManager;
+
     // 当前股票代码
     private String currentCode = "";
     
     // 是否已完成自动连接
     private boolean autoConnectCompleted = false;
+
+    // 是否已完成配置同步
+    private boolean configSyncCompleted = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -84,6 +93,10 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         
         // 从外部存储加载配置
         loadConfigFromExternalStorage();
+
+        // 初始化节点身份和配置管理
+        nodeIdentityManager = new NodeIdentityManager(this);
+        nodeConfigManager = new NodeConfigManager(this);
 
         // 初始化配置和服务
         configManager = new ConfigManager(this);
@@ -410,8 +423,8 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         
         Toast.makeText(this, "已连接到服务器: " + serverIp, Toast.LENGTH_SHORT).show();
         
-        // 自动查询上次股票
-        autoQueryLastStock();
+        // 自动同步节点配置
+        syncNodeConfig();
     }
 
     @Override
@@ -427,6 +440,105 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         autoConnectCompleted = true;
         
         Toast.makeText(this, error, Toast.LENGTH_LONG).show();
+        
+        // 连接失败时，使用本地缓存的配置并查询上次股票
+        autoQueryLastStock();
+    }
+
+    // ==================== 节点配置同步 ====================
+
+    /**
+     * 同步节点配置（连接成功后自动调用）
+     * 流程：获取服务器配置 → 获取节点配置 → 应用到界面
+     */
+    private void syncNodeConfig() {
+        if (configSyncCompleted) return;
+
+        final String nodeId = nodeIdentityManager.getNodeId();
+
+        // 步骤 1：获取服务器全局配置
+        stockService.fetchServerConfig(new StockService.DataCallback<JSONObject>() {
+            @Override
+            public void onSuccess(JSONObject serverConfig) {
+                // 步骤 2：获取节点配置
+                fetchNodeConfigAndApply(nodeId);
+            }
+
+            @Override
+            public void onFailure(String error) {
+                // 服务器配置获取失败，继续获取节点配置
+                fetchNodeConfigAndApply(nodeId);
+            }
+        });
+    }
+
+    /**
+     * 获取节点配置并应用到界面
+     */
+    private void fetchNodeConfigAndApply(final String nodeId) {
+        stockService.fetchNodeConfig(nodeId, new StockService.DataCallback<JSONObject>() {
+            @Override
+            public void onSuccess(JSONObject nodeConfig) {
+                // 保存到本地缓存
+                nodeConfigManager.saveServerConfig(nodeConfig);
+                configSyncCompleted = true;
+
+                // 应用到界面
+                applyNodeConfig(nodeConfig);
+            }
+
+            @Override
+            public void onFailure(String error) {
+                // 节点配置获取失败，使用本地缓存或默认配置
+                JSONObject cachedConfig = nodeConfigManager.getServerConfig();
+                if (cachedConfig != null) {
+                    applyNodeConfig(cachedConfig);
+                } else {
+                    // 没有缓存，查询上次股票
+                    autoQueryLastStock();
+                }
+                configSyncCompleted = true;
+            }
+        });
+    }
+
+    /**
+     * 应用节点配置到界面
+     */
+    private void applyNodeConfig(JSONObject config) {
+        // 加载关注列表
+        java.util.List<String> watchlist = nodeConfigManager.getWatchlistStocks();
+        if (!watchlist.isEmpty()) {
+            // 设置第一个关注股票为当前查询股票
+            currentCode = watchlist.get(0);
+            etStockCode.setText(currentCode);
+            // 自动查询
+            queryStock();
+        } else {
+            // 没有关注股票，尝试恢复上次查询
+            autoQueryLastStock();
+        }
+
+        Toast.makeText(this, "节点配置已同步", Toast.LENGTH_SHORT).show();
+    }
+
+    /**
+     * 自动查询上次股票
+     */
+    private void autoQueryLastStock() {
+        String lastCode = configManager.getLastCode();
+        if (!TextUtils.isEmpty(lastCode) && FormatUtil.isValidStockCode(lastCode)) {
+            etStockCode.setText(lastCode);
+            currentCode = lastCode;
+            
+            // 停止之前的刷新
+            refreshScheduler.stop();
+            
+            // 查询股票
+            queryStock();
+            
+            Toast.makeText(this, "已自动查询上次股票: " + lastCode, Toast.LENGTH_SHORT).show();
+        }
     }
 
     @Override
