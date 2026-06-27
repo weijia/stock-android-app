@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- 外部下载目录（APK 更新文件存放位置） -->
+    <external-path name="apk_download" path="Download" />
+    <!-- 应用专属外部存储（Android 10+） -->
+    <external-files-path name="apk_files" path="Download" />
+</paths>
