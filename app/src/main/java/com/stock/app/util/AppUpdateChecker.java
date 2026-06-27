@@ -239,6 +239,9 @@ public class AppUpdateChecker {
     /**
      * 安装 APK
      * 兼容 Android 4.0 ~ Android 14+
+     *
+     * 使用自定义 AppFileProvider（不依赖 AndroidX），
+     * 根据文件实际路径构建正确的 content URI。
      */
     private static void installApk(Activity activity, File apkFile) {
         try {
@@ -252,10 +255,28 @@ public class AppUpdateChecker {
             Uri apkUri;
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                // Android 7.0+ 需要 FileProvider
-                apkUri = FileProvider.getUriForFile(activity,
-                    activity.getPackageName() + ".fileprovider", apkFile);
+                // Android 7.0+ 需要 content URI
+                String authority = activity.getPackageName() + ".fileprovider";
+                File downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_DOWNLOADS);
+                File appFilesDir = activity.getExternalFilesDir(
+                    android.os.Environment.DIRECTORY_DOWNLOADS);
+                File parent = apkFile.getParentFile();
+
+                if (parent != null && parent.equals(downloadsDir)) {
+                    // 公共 Download 目录 → external-path/apk_download/
+                    apkUri = Uri.parse("content://" + authority
+                        + "/external-path/apk_download/" + apkFile.getName());
+                } else if (appFilesDir != null && parent != null && parent.equals(appFilesDir)) {
+                    // 应用专属目录 → external-files-path/apk_files/
+                    apkUri = Uri.parse("content://" + authority
+                        + "/external-files-path/apk_files/" + apkFile.getName());
+                } else {
+                    // fallback：尝试用 file://（Android 7.0+ 可能失败）
+                    apkUri = Uri.fromFile(apkFile);
+                }
             } else {
+                // Android 6.0 及以下直接用 file://
                 apkUri = Uri.fromFile(apkFile);
             }
 
