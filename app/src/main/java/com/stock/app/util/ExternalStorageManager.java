@@ -10,6 +10,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
 import android.provider.DocumentsContract;
+import android.provider.MediaStore;
 import android.util.Log;
 
 import org.json.JSONException;
@@ -25,6 +26,7 @@ import java.io.OutputStream;
 import java.util.List;
 
 import android.content.UriPermission;
+import android.content.ContentValues;
 
 /**
  * 外部存储配置管理器
@@ -213,39 +215,44 @@ public class ExternalStorageManager {
     public SaveResult saveConfig(JSONObject config) {
         String content = config.toString();
         SaveResult result = new SaveResult();
-        
-        // 1. 保存到 SAF
+        Log.i(TAG, "====== 开始保存配置 ======");
+
+        // 1. 保存到 SAF（用户已选择目录时）
         if (safAvailable && safDirUri != null) {
             try {
                 saveToSaf(content);
                 result.safSuccess = true;
                 result.safLocation = safDirUri.toString();
-                Log.i(TAG, "保存到 SAF 成功");
+                Log.i(TAG, "[SAF] 保存成功: " + safDirUri);
             } catch (Exception e) {
                 result.safError = e.getMessage();
-                Log.e(TAG, "保存到 SAF 失败: " + e.getMessage());
+                Log.e(TAG, "[SAF] 保存失败: " + e.getMessage(), e);
             }
+        } else {
+            Log.i(TAG, "[SAF] 跳过，safAvailable=" + safAvailable + ", safDirUri=" + safDirUri);
         }
         
-        // 2. 保存到外部存储（Android 4.0-4.3 或备份）
+        // 2. 保存到外部存储（公共可见目录）
         try {
             saveToExternalStorage(content);
             result.externalSuccess = true;
             File configDir = getLegacyConfigDir();
             if (configDir != null) {
-                result.externalLocation = new File(configDir, CONFIG_FILE_NAME).getAbsolutePath();
+                File configFile = new File(configDir, CONFIG_FILE_NAME);
+                result.externalLocation = configFile.getAbsolutePath();
+                Log.i(TAG, "[外部存储] 保存成功: " + configFile.getAbsolutePath());
             }
-            Log.i(TAG, "保存到外部存储成功");
         } catch (Exception e) {
             result.externalError = e.getMessage();
-            Log.e(TAG, "保存到外部存储失败: " + e.getMessage());
+            Log.e(TAG, "[外部存储] 保存失败: " + e.getMessage(), e);
         }
         
         // 3. 保存到 SharedPreferences（备份）
         prefs.edit().putString(KEY_CONFIG, content).apply();
         result.sharedPrefsSuccess = true;
-        Log.i(TAG, "保存到 SharedPreferences 成功");
-        
+        Log.i(TAG, "[SharedPreferences] 保存成功");
+        Log.i(TAG, "====== 保存配置结束 ======");
+
         return result;
     }
     
@@ -408,9 +415,6 @@ public class ExternalStorageManager {
                 try { os.close(); } catch (Exception e) { /* ignore */ }
             }
         }
-
-        // 刷新 MediaStore，让文件立即可见
-        refreshMediaStore(newFileUri);
     }
     
     // ============ 外部存储操作（Android 4.0-4.3） ============
@@ -440,10 +444,65 @@ public class ExternalStorageManager {
     }
     
     private void saveToExternalStorage(String content) throws Exception {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            // Android 10+ 使用 MediaStore API，无需 WRITE_EXTERNAL_STORAGE 权限
+            saveToMediaStore(content);
+        } else {
+            // Android 9 及以下使用传统文件写入
+            saveToFileSystem(content);
+        }
+    }
+
+    /**
+     * Android 10+ 通过 MediaStore 写入 Downloads 目录
+     */
+    private void saveToMediaStore(String content) throws Exception {
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.Downloads.DISPLAY_NAME, CONFIG_FILE_NAME);
+        values.put(MediaStore.Downloads.MIME_TYPE, "application/json");
+        values.put(MediaStore.Downloads.RELATIVE_PATH, LEGACY_CONFIG_DIR);
+
+        // 先删除旧文件
+        ContentResolver resolver = context.getContentResolver();
+        try {
+            resolver.delete(
+                MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                MediaStore.Downloads.DISPLAY_NAME + " = ? AND " + MediaStore.Downloads.RELATIVE_PATH + " = ?",
+                new String[]{CONFIG_FILE_NAME, LEGACY_CONFIG_DIR}
+            );
+        } catch (Exception e) {
+            Log.w(TAG, "删除旧 MediaStore 文件失败: " + e.getMessage());
+        }
+
+        // 插入新文件
+        Uri uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+        if (uri == null) {
+            throw new Exception("MediaStore insert 返回 null，无法创建文件");
+        }
+
+        OutputStream os = null;
+        try {
+            os = resolver.openOutputStream(uri);
+            if (os == null) {
+                throw new Exception("打开 MediaStore 输出流失败");
+            }
+            os.write(content.getBytes("UTF-8"));
+            os.flush();
+            Log.i(TAG, "[MediaStore] 文件已写入: " + uri + " (" + content.length() + " bytes)");
+        } finally {
+            if (os != null) {
+                try { os.close(); } catch (Exception e) { /* ignore */ }
+            }
+        }
+    }
+
+    /**
+     * Android 9 及以下直接写文件系统
+     */
+    private void saveToFileSystem(String content) throws Exception {
         File configDir = getLegacyConfigDir();
         if (configDir == null) throw new Exception("无法访问外部存储");
 
-        // 创建目录（包括父目录）
         if (!configDir.exists()) {
             boolean created = configDir.mkdirs();
             if (!created) {
@@ -457,26 +516,26 @@ public class ExternalStorageManager {
             fos = new FileOutputStream(configFile);
             fos.write(content.getBytes("UTF-8"));
             fos.flush();
+            Log.i(TAG, "[文件系统] 文件已写入: " + configFile.getAbsolutePath() + " (" + content.length() + " bytes)");
         } finally {
             if (fos != null) {
                 try { fos.close(); } catch (Exception e) { /* ignore */ }
             }
         }
 
-        // 刷新 MediaStore，让文件立即可见
         refreshMediaStore(configFile);
     }
     
     private File getLegacyConfigDir() {
-        // Android 10+ 使用应用专属外部目录
+        // Android 10+ 使用公共 Downloads 目录（文件管理器可见）
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            File externalDir = context.getExternalFilesDir(null);
-            if (externalDir != null) {
-                return new File(externalDir, LEGACY_CONFIG_DIR);
+            File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+            if (downloadsDir != null) {
+                return new File(downloadsDir, LEGACY_CONFIG_DIR);
             }
         }
         
-        // Android 4.0-9 使用公共外部存储目录
+        // Android 4.0-9 使用公共外部存储根目录
         File storageDir = Environment.getExternalStorageDirectory();
         if (storageDir != null && storageDir.canWrite()) {
             return new File(storageDir, LEGACY_CONFIG_DIR);
@@ -533,24 +592,6 @@ public class ExternalStorageManager {
         Log.i(TAG, "所有配置已清除");
     }
 
-    /**
-     * 刷新 MediaStore，让新创建的文件立即在文件管理器中可见
-     */
-    private void refreshMediaStore(Uri fileUri) {
-        try {
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT) {
-                // Android 4.4+ 使用 scanFile
-                android.media.MediaScannerConnection.scanFile(
-                    context,
-                    new String[]{fileUri.toString()},
-                    new String[]{"text/plain"},
-                    null
-                );
-            }
-        } catch (Exception e) {
-            Log.w(TAG, "刷新 MediaStore 失败: " + e.getMessage());
-        }
-    }
 
     /**
      * 刷新 MediaStore（File 版本）
@@ -586,3 +627,4 @@ public class ExternalStorageManager {
         return "SharedPreferences";
     }
 }
+
