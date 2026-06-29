@@ -50,4 +50,11 @@ public class NodeIdentityManager {
     public void resetNodeId() {
         prefs.edit().remove(KEY_NODE_ID).apply();
     }
+
+    /**
+     * 设置自定义节点 ID
+     */
+    public void setNodeId(String nodeId) {
+        prefs.edit().putString(KEY_NODE_ID, nodeId).apply();
+    }
 }
