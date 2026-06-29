@@ -402,9 +402,18 @@ public class ExternalStorageManager {
         
         // 创建新文件
         Log.i(TAG, "创建新配置文件...");
-        // 使用 text/plain MIME 类型，兼容性更好
-        Uri newFileUri = DocumentsContract.createDocument(
-            resolver, safDirUri, "text/plain", CONFIG_FILE_NAME);
+        Uri newFileUri;
+        try {
+            // 使用 text/plain MIME 类型，兼容性更好
+            newFileUri = DocumentsContract.createDocument(
+                resolver, safDirUri, "text/plain", CONFIG_FILE_NAME);
+        } catch (IllegalArgumentException e) {
+            // URI 权限已过期，清除保存的 URI
+            Log.e(TAG, "SAF URI 无效，权限可能已过期: " + e.getMessage());
+            safDirUri = null;
+            prefs.edit().remove(KEY_SAF_URI).apply();
+            throw new Exception("SAF 目录权限已过期，请重新选择: " + e.getMessage());
+        }
 
         if (newFileUri == null) {
             Log.e(TAG, "创建文件失败，newFileUri 为空");
@@ -476,18 +485,21 @@ public class ExternalStorageManager {
         ContentValues values = new ContentValues();
         values.put(MediaStore.Downloads.DISPLAY_NAME, CONFIG_FILE_NAME);
         values.put(MediaStore.Downloads.MIME_TYPE, "application/json");
-        values.put(MediaStore.Downloads.RELATIVE_PATH, LEGACY_CONFIG_DIR);
+        // 不设置 RELATIVE_PATH，文件直接放在 Downloads 根目录
+        // Android MediaStore Downloads 不允许子目录
 
-        // 先删除旧文件
         ContentResolver resolver = context.getContentResolver();
+
+        // 先删除旧文件（只按文件名匹配）
         try {
-            resolver.delete(
+            int deleted = resolver.delete(
                 MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                MediaStore.Downloads.DISPLAY_NAME + " = ? AND " + MediaStore.Downloads.RELATIVE_PATH + " = ?",
-                new String[]{CONFIG_FILE_NAME, LEGACY_CONFIG_DIR}
+                MediaStore.Downloads.DISPLAY_NAME + " = ?",
+                new String[]{CONFIG_FILE_NAME}
             );
+            Log.i(TAG, "[MediaStore] 删除旧文件: " + deleted);
         } catch (Exception e) {
-            Log.w(TAG, "删除旧 MediaStore 文件失败: " + e.getMessage());
+            Log.w(TAG, "[MediaStore] 删除旧文件失败: " + e.getMessage());
         }
 
         // 插入新文件
