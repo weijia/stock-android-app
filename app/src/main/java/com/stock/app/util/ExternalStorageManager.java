@@ -402,11 +402,16 @@ public class ExternalStorageManager {
         
         // 创建新文件
         Log.i(TAG, "创建新配置文件...");
+        // createDocument 需要文档 URI，不是树 URI
+        String treeDocId = DocumentsContract.getTreeDocumentId(safDirUri);
+        Uri parentDocumentUri = DocumentsContract.buildDocumentUriUsingTree(safDirUri, treeDocId);
+        Log.i(TAG, "父文档 URI: " + parentDocumentUri);
+
         Uri newFileUri;
         try {
             // 使用 text/plain MIME 类型，兼容性更好
             newFileUri = DocumentsContract.createDocument(
-                resolver, safDirUri, "text/plain", CONFIG_FILE_NAME);
+                resolver, parentDocumentUri, "text/plain", CONFIG_FILE_NAME);
         } catch (IllegalArgumentException e) {
             // URI 权限已过期，清除保存的 URI
             Log.e(TAG, "SAF URI 无效，权限可能已过期: " + e.getMessage());
