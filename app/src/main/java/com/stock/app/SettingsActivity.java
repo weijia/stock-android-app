@@ -18,6 +18,7 @@ import com.stock.app.service.ServerDiscovery;
 import com.stock.app.service.StockService;
 import com.stock.app.util.ConfigManager;
 import com.stock.app.util.ExternalStorageManager;
+import com.stock.app.util.NodeIdentityManager;
 
 import org.json.JSONObject;
 
@@ -31,6 +32,7 @@ public class SettingsActivity extends Activity {
     // UI 组件
     private EditText etServerIp;
     private EditText etServerPort;
+    private EditText etNodeId;
     private Button btnSave;
     private Button btnTestConnection;
     private TextView tvTestResult;
@@ -99,6 +101,7 @@ public class SettingsActivity extends Activity {
     private void initViews() {
         etServerIp = findViewById(R.id.et_server_ip);
         etServerPort = findViewById(R.id.et_server_port);
+        etNodeId = findViewById(R.id.et_node_id);
         btnSave = findViewById(R.id.btn_save);
         btnTestConnection = findViewById(R.id.btn_test_connection);
         tvTestResult = findViewById(R.id.tv_test_result);
@@ -121,6 +124,13 @@ public class SettingsActivity extends Activity {
         // 显示当前配置
         etServerIp.setText(configManager.getServerIp());
         etServerPort.setText(String.valueOf(configManager.getServerPort()));
+
+        // 显示当前节点 ID（不覆盖，只在输入框为空时填充）
+        NodeIdentityManager nodeIdentityManager = new NodeIdentityManager(this);
+        String currentNodeId = nodeIdentityManager.getNodeId();
+        if (etNodeId.getText().toString().trim().isEmpty()) {
+            etNodeId.setText(currentNodeId);
+        }
     }
 
     private void setupClickListeners() {
@@ -403,9 +413,16 @@ public class SettingsActivity extends Activity {
 
         // 保存配置到 SharedPreferences
         configManager.saveServerConfig(ip, port);
-        
-        // 同时保存到外部存储，并检查结果
-        ExternalStorageManager.SaveResult result = saveToExternalStorageWithResult(ip, port);
+
+        // 保存节点 ID（用户修改过的话）
+        String newNodeId = etNodeId.getText().toString().trim();
+        if (!TextUtils.isEmpty(newNodeId)) {
+            NodeIdentityManager nodeIdentityManager = new NodeIdentityManager(this);
+            nodeIdentityManager.setNodeId(newNodeId);
+        }
+
+        // 同时保存到外部存储（包含节点 ID），并检查结果
+        ExternalStorageManager.SaveResult result = saveToExternalStorageWithResult(ip, port, newNodeId);
 
         // 统一显示保存结果
         if (result.safSuccess) {
@@ -435,13 +452,16 @@ public class SettingsActivity extends Activity {
     /**
      * 保存配置到外部存储，返回详细结果
      */
-    private ExternalStorageManager.SaveResult saveToExternalStorageWithResult(String ip, int port) {
+    private ExternalStorageManager.SaveResult saveToExternalStorageWithResult(String ip, int port, String nodeId) {
         ExternalStorageManager.SaveResult result = new ExternalStorageManager.SaveResult();
         try {
             JSONObject config = new JSONObject();
             config.put("server_ip", ip);
             config.put("server_port", port);
             config.put("last_code", configManager.getLastCode());
+            if (nodeId != null && !nodeId.isEmpty()) {
+                config.put("node_id", nodeId);
+            }
 
             result = externalStorageManager.saveConfig(config);
         } catch (Exception e) {
@@ -539,7 +559,7 @@ public class SettingsActivity extends Activity {
                 }
             }
             
-            ExternalStorageManager.SaveResult result = saveToExternalStorageWithResult(ip, port);
+            ExternalStorageManager.SaveResult result = saveToExternalStorageWithResult(ip, port, etNodeId.getText().toString().trim());
             if (result.safSuccess || result.externalSuccess) {
                 Toast.makeText(this, "已选择外部存储目录，配置已保存", Toast.LENGTH_SHORT).show();
             } else {
@@ -556,4 +576,5 @@ public class SettingsActivity extends Activity {
         mdnsDiscovery.shutdown();
     }
 }
+
 
