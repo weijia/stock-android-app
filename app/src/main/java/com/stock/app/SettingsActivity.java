@@ -34,6 +34,7 @@ public class SettingsActivity extends Activity {
     private EditText etServerPort;
     private EditText etNodeId;
     private Button btnSave;
+    private Button btnCopyNodeId;
     private Button btnTestConnection;
     private TextView tvTestResult;
     private Button btnAutoDiscover;
@@ -103,6 +104,7 @@ public class SettingsActivity extends Activity {
         etServerPort = findViewById(R.id.et_server_port);
         etNodeId = findViewById(R.id.et_node_id);
         btnSave = findViewById(R.id.btn_save);
+        btnCopyNodeId = findViewById(R.id.btn_copy_node_id);
         btnTestConnection = findViewById(R.id.btn_test_connection);
         tvTestResult = findViewById(R.id.tv_test_result);
         btnAutoDiscover = findViewById(R.id.btn_auto_discover);
@@ -139,6 +141,24 @@ public class SettingsActivity extends Activity {
             @Override
             public void onClick(View v) {
                 saveConfig();
+            }
+        });
+
+        // 复制节点 ID 按钮
+        btnCopyNodeId.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String nodeId = etNodeId.getText().toString().trim();
+                if (!TextUtils.isEmpty(nodeId)) {
+                    android.content.ClipboardManager clipboard =
+                        (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                    android.content.ClipData clip =
+                        android.content.ClipData.newPlainText("节点 ID", nodeId);
+                    clipboard.setPrimaryClip(clip);
+                    Toast.makeText(SettingsActivity.this, "节点 ID 已复制", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(SettingsActivity.this, "节点 ID 为空", Toast.LENGTH_SHORT).show();
+                }
             }
         });
 
@@ -576,5 +596,6 @@ public class SettingsActivity extends Activity {
         mdnsDiscovery.shutdown();
     }
 }
+
 
 
