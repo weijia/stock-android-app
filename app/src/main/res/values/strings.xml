@@ -4,6 +4,7 @@
     <string name="settings_title">设置</string>
     <string name="hint_stock_code">输入股票代码 (如 000001)</string>
     <string name="btn_query">查询</string>
+    <string name="keep_screen_on">屏幕常亮</string>
     <string name="btn_settings">设置</string>
     <string name="btn_save">保存</string>
     <string name="btn_test_connection">测试连接</string>
