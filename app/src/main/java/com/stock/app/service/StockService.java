@@ -31,12 +31,17 @@ public class StockService {
     private Handler mainHandler;
 
     public StockService(ConfigManager configManager) {
-        
+        this.configManager = configManager;
+        this.httpClient = new HttpClient();
+        this.debugLogger = DebugLogger.getInstance();
+        this.jsonParser = new JsonParser();
+        this.executorService = Executors.newSingleThreadExecutor();
+        this.mainHandler = new Handler(Looper.getMainLooper());
+    }
 
     private void log(String tag, String msg) {
         if (debugLogger != null) debugLogger.log(tag, msg);
     }
-        
 
     /**
      * 数据回调接口
@@ -372,4 +377,5 @@ public class StockService {
         }
     }
 }
+
 
