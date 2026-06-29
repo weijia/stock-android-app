@@ -64,24 +64,24 @@
 
         <Button
             android:id="@+id/btn_query"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="0.8"
             android:text="@string/btn_query"
             android:textSize="14sp"
             android:background="@color/colorPrimary"
             android:textColor="@color/surface" />
 
-    </LinearLayout>
+        <CheckBox
+            android:id="@+id/sw_keep_screen_on"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="8dp"
+            android:text="@string/keep_screen_on"
+            android:textSize="12sp"
+            android:textColor="@color/textSecondary" />
 
-    <!-- 屏幕常亮开关（独立一行，横屏也可见） -->
-    <CheckBox
-        android:id="@+id/sw_keep_screen_on"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:text="@string/keep_screen_on"
-        android:textSize="12sp"
-        android:textColor="@color/textSecondary" />
+    </LinearLayout>
 
     <!-- 股票信息展示区（紧凑布局） -->
     <LinearLayout
@@ -307,6 +307,7 @@
         android:textColor="@color/surface" />
 
 </LinearLayout>
+
 
 
 
