@@ -60,6 +60,34 @@
             android:background="@color/surface"
             android:padding="12dp" />
 
+        <!-- 节点 ID -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="节点 ID"
+            android:textColor="@color/textSecondary"
+            android:textSize="14sp" />
+
+        <EditText
+            android:id="@+id/et_node_id"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="UUID 格式的节点标识符"
+            android:inputType="text"
+            android:maxLines="1"
+            android:background="@color/surface"
+            android:padding="12dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="用于服务器识别此客户端，修改后需重新连接"
+            android:textColor="@color/textSecondary"
+            android:textSize="12sp" />
+
         <!-- 测试连接按钮 -->
         <Button
             android:id="@+id/btn_test_connection"
@@ -267,3 +295,4 @@
     </LinearLayout>
 
 </ScrollView>
+
