@@ -379,29 +379,38 @@ public class ExternalStorageManager {
         
         // 创建新文件
         Log.i(TAG, "创建新配置文件...");
+        // 使用 text/plain MIME 类型，兼容性更好
         Uri newFileUri = DocumentsContract.createDocument(
-            resolver, safDirUri, "application/json", CONFIG_FILE_NAME);
-        
+            resolver, safDirUri, "text/plain", CONFIG_FILE_NAME);
+
         if (newFileUri == null) {
             Log.e(TAG, "创建文件失败，newFileUri 为空");
             throw new Exception("创建文件失败");
         }
-        
+
         Log.i(TAG, "新文件 URI: " + newFileUri);
-        
+
         // 写入内容
-        OutputStream os = resolver.openOutputStream(newFileUri);
-        if (os == null) {
-            Log.e(TAG, "打开输出流失败");
-            throw new Exception("打开输出流失败");
+        OutputStream os = null;
+        try {
+            os = resolver.openOutputStream(newFileUri);
+            if (os == null) {
+                Log.e(TAG, "打开输出流失败");
+                throw new Exception("打开输出流失败");
+            }
+
+            Log.i(TAG, "写入内容，长度: " + content.length());
+            os.write(content.getBytes("UTF-8"));
+            os.flush();
+            Log.i(TAG, "保存到 SAF 成功");
+        } finally {
+            if (os != null) {
+                try { os.close(); } catch (Exception e) { /* ignore */ }
+            }
         }
-        
-        Log.i(TAG, "写入内容，长度: " + content.length());
-        os.write(content.getBytes("UTF-8"));
-        os.flush();
-        os.close();
-        
-        Log.i(TAG, "保存到 SAF 成功");
+
+        // 刷新 MediaStore，让文件立即可见
+        refreshMediaStore(newFileUri);
     }
     
     // ============ 外部存储操作（Android 4.0-4.3） ============
@@ -433,16 +442,29 @@ public class ExternalStorageManager {
     private void saveToExternalStorage(String content) throws Exception {
         File configDir = getLegacyConfigDir();
         if (configDir == null) throw new Exception("无法访问外部存储");
-        
-        // 创建目录
+
+        // 创建目录（包括父目录）
         if (!configDir.exists()) {
-            configDir.mkdirs();
+            boolean created = configDir.mkdirs();
+            if (!created) {
+                throw new Exception("无法创建目录: " + configDir.getAbsolutePath());
+            }
         }
-        
+
         File configFile = new File(configDir, CONFIG_FILE_NAME);
-        FileOutputStream fos = new FileOutputStream(configFile);
-        fos.write(content.getBytes("UTF-8"));
-        fos.close();
+        FileOutputStream fos = null;
+        try {
+            fos = new FileOutputStream(configFile);
+            fos.write(content.getBytes("UTF-8"));
+            fos.flush();
+        } finally {
+            if (fos != null) {
+                try { fos.close(); } catch (Exception e) { /* ignore */ }
+            }
+        }
+
+        // 刷新 MediaStore，让文件立即可见
+        refreshMediaStore(configFile);
     }
     
     private File getLegacyConfigDir() {
@@ -507,10 +529,47 @@ public class ExternalStorageManager {
         
         // 清除 SharedPreferences
         prefs.edit().clear().apply();
-        
+
         Log.i(TAG, "所有配置已清除");
     }
-    
+
+    /**
+     * 刷新 MediaStore，让新创建的文件立即在文件管理器中可见
+     */
+    private void refreshMediaStore(Uri fileUri) {
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT) {
+                // Android 4.4+ 使用 scanFile
+                android.media.MediaScannerConnection.scanFile(
+                    context,
+                    new String[]{fileUri.toString()},
+                    new String[]{"text/plain"},
+                    null
+                );
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "刷新 MediaStore 失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 刷新 MediaStore（File 版本）
+     */
+    private void refreshMediaStore(File file) {
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT) {
+                android.media.MediaScannerConnection.scanFile(
+                    context,
+                    new String[]{file.getAbsolutePath()},
+                    new String[]{"text/plain"},
+                    null
+                );
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "刷新 MediaStore 失败: " + e.getMessage());
+        }
+    }
+
     /**
      * 获取配置存储位置描述
      */
