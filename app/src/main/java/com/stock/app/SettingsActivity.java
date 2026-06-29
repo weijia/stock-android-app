@@ -17,6 +17,7 @@ import com.stock.app.service.MDNSDiscovery;
 import com.stock.app.service.ServerDiscovery;
 import com.stock.app.service.StockService;
 import com.stock.app.util.ConfigManager;
+import com.stock.app.util.DebugLogger;
 import com.stock.app.util.ExternalStorageManager;
 import com.stock.app.util.NodeIdentityManager;
 
@@ -445,10 +446,13 @@ public class SettingsActivity extends Activity {
         ExternalStorageManager.SaveResult result = saveToExternalStorageWithResult(ip, port, newNodeId);
 
         // 统一显示保存结果
+        DebugLogger logger = DebugLogger.getInstance();
         if (result.safSuccess) {
             Toast.makeText(this, "配置已保存到: " + result.safLocation, Toast.LENGTH_LONG).show();
+            if (logger != null) logger.log("Settings", "配置保存成功(SAF): " + result.safLocation);
         } else if (result.externalSuccess) {
             Toast.makeText(this, "配置已保存到: " + result.externalLocation, Toast.LENGTH_LONG).show();
+            if (logger != null) logger.log("Settings", "配置保存成功(外部存储): " + result.externalLocation);
         } else {
             String errorMsg = "配置已保存到应用内部";
             if (result.safError != null || result.externalError != null) {
@@ -463,6 +467,7 @@ public class SettingsActivity extends Activity {
             }
             Toast.makeText(this, errorMsg, Toast.LENGTH_LONG).show();
             android.util.Log.e("SettingsActivity", errorMsg);
+            if (logger != null) logger.error("Settings", "配置保存失败: " + errorMsg);
         }
 
         // 返回主界面
@@ -596,6 +601,7 @@ public class SettingsActivity extends Activity {
         mdnsDiscovery.shutdown();
     }
 }
+
 
 
 
