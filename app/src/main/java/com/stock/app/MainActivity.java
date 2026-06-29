@@ -8,7 +8,6 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.EditText;
-import android.widget.Switch;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -47,7 +46,7 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
     private EditText etStockCode;
     private Button btnQuery;
     private Button btnSettings;
-    private Switch swKeepScreenOn;
+    private CompoundButton swKeepScreenOn;
     private LinearLayout stockInfoPanel;
     private LinearLayout chartPanel;
     private LinearLayout intradayPanel;
@@ -1041,6 +1040,7 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         });
     }
 }
+
 
 
 
