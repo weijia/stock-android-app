@@ -161,7 +161,7 @@ public class DebugLogger {
         }
     }
 
-    private void saveToPrefs() {
+    private synchronized void saveToPrefs() {
         try {
             org.json.JSONArray arr = new org.json.JSONArray();
             for (String log : logList) {
@@ -173,4 +173,5 @@ public class DebugLogger {
         }
     }
 }
+
 
