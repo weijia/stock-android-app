@@ -32,6 +32,7 @@ public class DebugLogger {
     private SharedPreferences prefs;
     private List<String> logList;
     private SimpleDateFormat timeFormat;
+    private boolean dirty = false; // 是否有未保存的日志
 
     private DebugLogger(Context context) {
         prefs = context.getApplicationContext().getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
@@ -97,7 +98,27 @@ public class DebugLogger {
             android.util.Log.d(tag, message);
         }
 
-        saveToPrefs();
+        // 延迟保存，避免频繁 IO
+        dirty = true;
+        if (!pendingSave) {
+            scheduleSave();
+        }
+    }
+
+    private volatile boolean pendingSave = false;
+
+    private void scheduleSave() {
+        pendingSave = true;
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (dirty) {
+                    saveToPrefs();
+                    dirty = false;
+                }
+                pendingSave = false;
+            }
+        }, 2000); // 2秒后批量保存
     }
 
     /**
@@ -152,3 +173,4 @@ public class DebugLogger {
         }
     }
 }
+
