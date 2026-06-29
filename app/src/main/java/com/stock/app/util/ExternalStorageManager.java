@@ -487,20 +487,21 @@ public class ExternalStorageManager {
      * Android 10+ 通过 MediaStore 写入 Downloads 目录
      */
     private void saveToMediaStore(String content) throws Exception {
+        final String relativePath = "Download/" + LEGACY_CONFIG_DIR;
+
         ContentValues values = new ContentValues();
         values.put(MediaStore.Downloads.DISPLAY_NAME, CONFIG_FILE_NAME);
         values.put(MediaStore.Downloads.MIME_TYPE, "application/json");
-        // 不设置 RELATIVE_PATH，文件直接放在 Downloads 根目录
-        // Android MediaStore Downloads 不允许子目录
+        values.put(MediaStore.Downloads.RELATIVE_PATH, relativePath);
 
         ContentResolver resolver = context.getContentResolver();
 
-        // 先删除旧文件（只按文件名匹配）
+        // 先删除旧文件（按文件名和路径匹配）
         try {
             int deleted = resolver.delete(
                 MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                MediaStore.Downloads.DISPLAY_NAME + " = ?",
-                new String[]{CONFIG_FILE_NAME}
+                MediaStore.Downloads.DISPLAY_NAME + " = ? AND " + MediaStore.Downloads.RELATIVE_PATH + " = ?",
+                new String[]{CONFIG_FILE_NAME, relativePath}
             );
             Log.i(TAG, "[MediaStore] 删除旧文件: " + deleted);
         } catch (Exception e) {
