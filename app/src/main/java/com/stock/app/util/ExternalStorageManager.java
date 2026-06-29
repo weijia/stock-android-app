@@ -13,6 +13,8 @@ import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.util.Log;
 
+import com.stock.app.util.DebugLogger;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -216,6 +218,7 @@ public class ExternalStorageManager {
         String content = config.toString();
         SaveResult result = new SaveResult();
         Log.i(TAG, "====== 开始保存配置 ======");
+        debugLog("保存配置开始，内容长度=" + content.length());
 
         // 1. 保存到 SAF（用户已选择目录时）
         if (safAvailable && safDirUri != null) {
@@ -224,14 +227,17 @@ public class ExternalStorageManager {
                 result.safSuccess = true;
                 result.safLocation = safDirUri.toString();
                 Log.i(TAG, "[SAF] 保存成功: " + safDirUri);
+                debugLog("SAF 保存成功: " + safDirUri);
             } catch (Exception e) {
                 result.safError = e.getMessage();
                 Log.e(TAG, "[SAF] 保存失败: " + e.getMessage(), e);
+                debugLog("SAF 保存失败: " + e.getMessage());
             }
         } else {
             Log.i(TAG, "[SAF] 跳过，safAvailable=" + safAvailable + ", safDirUri=" + safDirUri);
+            debugLog("SAF 跳过，未设置目录");
         }
-        
+
         // 2. 保存到外部存储（公共可见目录）
         try {
             saveToExternalStorage(content);
@@ -241,19 +247,29 @@ public class ExternalStorageManager {
                 File configFile = new File(configDir, CONFIG_FILE_NAME);
                 result.externalLocation = configFile.getAbsolutePath();
                 Log.i(TAG, "[外部存储] 保存成功: " + configFile.getAbsolutePath());
+                debugLog("外部存储保存成功: " + configFile.getAbsolutePath());
             }
         } catch (Exception e) {
             result.externalError = e.getMessage();
             Log.e(TAG, "[外部存储] 保存失败: " + e.getMessage(), e);
+            debugLog("外部存储保存失败: " + e.getMessage());
         }
-        
+
         // 3. 保存到 SharedPreferences（备份）
         prefs.edit().putString(KEY_CONFIG, content).apply();
         result.sharedPrefsSuccess = true;
         Log.i(TAG, "[SharedPreferences] 保存成功");
+        debugLog("SharedPreferences 保存成功");
         Log.i(TAG, "====== 保存配置结束 ======");
 
         return result;
+    }
+
+    private void debugLog(String msg) {
+        DebugLogger logger = DebugLogger.getInstance();
+        if (logger != null) {
+            logger.log("ExternalStorage", msg);
+        }
     }
     
     /**
@@ -627,4 +643,5 @@ public class ExternalStorageManager {
         return "SharedPreferences";
     }
 }
+
 
