@@ -61,26 +61,34 @@
             android:background="@color/surface"
             android:padding="10dp" />
 
-        <!-- 查询按钮 -->
-        <Button
-            android:id="@+id/btn_query"
+        <!-- 查询按钮 + 屏幕常亮开关 -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
-            android:text="@string/btn_query"
-            android:textSize="16sp"
-            android:background="@color/colorPrimary"
-            android:textColor="@color/surface" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
 
-        <!-- 屏幕常亮开关 -->
-        <CheckBox
-            android:id="@+id/sw_keep_screen_on"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="@string/keep_screen_on"
-            android:textSize="12sp"
-            android:textColor="@color/textSecondary" />
+            <Button
+                android:id="@+id/btn_query"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="0.8"
+                android:text="@string/btn_query"
+                android:textSize="16sp"
+                android:background="@color/colorPrimary"
+                android:textColor="@color/surface" />
+
+            <CheckBox
+                android:id="@+id/sw_keep_screen_on"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="8dp"
+                android:text="@string/keep_screen_on"
+                android:textSize="12sp"
+                android:textColor="@color/textSecondary" />
+
+        </LinearLayout>
 
         <!-- 股票信息展示区（紧凑布局） -->
         <LinearLayout
@@ -305,3 +313,4 @@
 
     </LinearLayout>
 </ScrollView>
+
