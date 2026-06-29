@@ -5,8 +5,10 @@ import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.View;
 import android.widget.Button;
+import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -44,6 +46,7 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
     private EditText etStockCode;
     private Button btnQuery;
     private Button btnSettings;
+    private Switch swKeepScreenOn;
     private LinearLayout stockInfoPanel;
     private LinearLayout chartPanel;
     private LinearLayout intradayPanel;
@@ -99,6 +102,9 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
     private Runnable nodeConfigSyncTask;
     private static final int NODE_CONFIG_SYNC_INTERVAL = 300000; // 5分钟同步一次节点配置（与 API 规范一致）
 
+    // 屏幕常亮开关持久化
+    private static final String PREF_KEEP_SCREEN_ON = "keep_screen_on";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -134,6 +140,12 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
 
         // 设置按钮点击事件
         setupClickListeners();
+
+        // 恢复屏幕常亮开关状态
+        boolean keepScreenOn = getSharedPreferences("stock_prefs", MODE_PRIVATE)
+            .getBoolean(PREF_KEEP_SCREEN_ON, false);
+        swKeepScreenOn.setChecked(keepScreenOn);
+        updateKeepScreenOn(keepScreenOn);
 
         // 恢复上次查询的股票代码
         String lastCode = configManager.getLastCode();
@@ -216,6 +228,7 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         etStockCode = findViewById(R.id.et_stock_code);
         btnQuery = findViewById(R.id.btn_query);
         btnSettings = findViewById(R.id.btn_settings);
+        swKeepScreenOn = findViewById(R.id.sw_keep_screen_on);
         stockInfoPanel = findViewById(R.id.stock_info_panel);
         chartPanel = findViewById(R.id.chart_panel);
         intradayPanel = findViewById(R.id.intraday_panel);
@@ -253,6 +266,27 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
                 openSettings();
             }
         });
+
+        // 屏幕常亮开关
+        swKeepScreenOn.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                updateKeepScreenOn(isChecked);
+                getSharedPreferences("stock_prefs", MODE_PRIVATE)
+                    .edit().putBoolean(PREF_KEEP_SCREEN_ON, isChecked).apply();
+            }
+        });
+    }
+
+    /**
+     * 更新屏幕常亮状态
+     */
+    private void updateKeepScreenOn(boolean keepOn) {
+        if (keepOn) {
+            getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        } else {
+            getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        }
     }
 
     private void checkServerStatus() {
@@ -948,6 +982,7 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         });
     }
 }
+
 
 
 
