@@ -69,16 +69,34 @@
             android:textColor="@color/textSecondary"
             android:textSize="14sp" />
 
-        <EditText
-            android:id="@+id/et_node_id"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:hint="UUID 格式的节点标识符"
-            android:inputType="text"
-            android:maxLines="1"
-            android:background="@color/surface"
-            android:padding="12dp" />
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/et_node_id"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="UUID 格式的节点标识符"
+                android:inputType="text"
+                android:maxLines="1"
+                android:background="@color/surface"
+                android:padding="12dp" />
+
+            <Button
+                android:id="@+id/btn_copy_node_id"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="8dp"
+                android:text="复制"
+                android:background="@color/colorAccent"
+                android:textColor="@color/surface"
+                android:paddingLeft="12dp"
+                android:paddingRight="12dp" />
+        </LinearLayout>
 
         <TextView
             android:layout_width="wrap_content"
