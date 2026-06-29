@@ -8,7 +8,6 @@ import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.LinearLayout;
-import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -46,7 +45,7 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
     private EditText etStockCode;
     private Button btnQuery;
     private Button btnSettings;
-    private Switch swKeepScreenOn;
+    private CompoundButton swKeepScreenOn;
     private LinearLayout stockInfoPanel;
     private LinearLayout chartPanel;
     private LinearLayout intradayPanel;
@@ -149,8 +148,12 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         // 恢复屏幕常亮开关状态
         boolean keepScreenOn = getSharedPreferences("stock_prefs", MODE_PRIVATE)
             .getBoolean(PREF_KEEP_SCREEN_ON, false);
-        swKeepScreenOn.setChecked(keepScreenOn);
-        updateKeepScreenOn(keepScreenOn);
+        if (swKeepScreenOn != null) {
+            swKeepScreenOn.setChecked(keepScreenOn);
+            updateKeepScreenOn(keepScreenOn);
+        } else {
+            Log.w("MainActivity", "swKeepScreenOn 为 null，跳过屏幕常亮设置");
+        }
 
         // 恢复上次查询的股票代码
         String lastCode = configManager.getLastCode();
@@ -276,14 +279,16 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         });
 
         // 屏幕常亮开关
-        swKeepScreenOn.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                updateKeepScreenOn(isChecked);
-                getSharedPreferences("stock_prefs", MODE_PRIVATE)
-                    .edit().putBoolean(PREF_KEEP_SCREEN_ON, isChecked).apply();
-            }
-        });
+        if (swKeepScreenOn != null) {
+            swKeepScreenOn.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+                @Override
+                public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                    updateKeepScreenOn(isChecked);
+                    getSharedPreferences("stock_prefs", MODE_PRIVATE)
+                        .edit().putBoolean(PREF_KEEP_SCREEN_ON, isChecked).apply();
+                }
+            });
+        }
     }
 
     /**
@@ -325,7 +330,7 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         tradingHoursCheckTask = new Runnable() {
             @Override
             public void run() {
-                if (swKeepScreenOn.isChecked() && !isInTradingHours()) {
+                if (swKeepScreenOn != null && swKeepScreenOn.isChecked() && !isInTradingHours()) {
                     // 过了交易时间，自动关闭屏幕常亮
                     getWindow().clearFlags(
                         android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -1034,6 +1039,7 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         });
     }
 }
+
 
 
 
