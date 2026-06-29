@@ -105,6 +105,11 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
     // 屏幕常亮开关持久化
     private static final String PREF_KEEP_SCREEN_ON = "keep_screen_on";
 
+    // 交易时间检查（15:00 后自动关闭屏幕常亮）
+    private android.os.Handler tradingHoursCheckHandler;
+    private Runnable tradingHoursCheckTask;
+    private static final int TRADING_HOURS_CHECK_INTERVAL = 60000; // 每分钟检查一次
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -161,6 +166,9 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         
         // 启动节点配置定时同步
         startNodeConfigSync();
+
+        // 启动交易时间检查（15:00 后自动关闭屏幕常亮）
+        startTradingHoursCheck();
     }
     
     /**
@@ -280,13 +288,52 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
 
     /**
      * 更新屏幕常亮状态
+     * 仅在 A 股交易时间内生效（工作日 9:30 - 15:00 北京时间）
      */
     private void updateKeepScreenOn(boolean keepOn) {
-        if (keepOn) {
+        if (keepOn && isInTradingHours()) {
             getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         } else {
             getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
+    }
+
+    /**
+     * 判断是否处于 A 股交易时间（工作日 9:30 - 15:00 北京时间）
+     */
+    private boolean isInTradingHours() {
+        java.util.Calendar cal = java.util.Calendar.getInstance(
+            java.util.TimeZone.getTimeZone("Asia/Shanghai"));
+        int dayOfWeek = cal.get(java.util.Calendar.DAY_OF_WEEK);
+        // 周六或周日不开盘
+        if (dayOfWeek == java.util.Calendar.SATURDAY
+                || dayOfWeek == java.util.Calendar.SUNDAY) {
+            return false;
+        }
+        int hour = cal.get(java.util.Calendar.HOUR_OF_DAY);
+        int minute = cal.get(java.util.Calendar.MINUTE);
+        int time = hour * 100 + minute; // 例如 930 = 9:30, 1500 = 15:00
+        return time >= 930 && time < 1500;
+    }
+
+    /**
+     * 启动交易时间检查定时器
+     * 每分钟检查一次，15:00 后自动关闭屏幕常亮
+     */
+    private void startTradingHoursCheck() {
+        tradingHoursCheckHandler = new android.os.Handler();
+        tradingHoursCheckTask = new Runnable() {
+            @Override
+            public void run() {
+                if (swKeepScreenOn.isChecked() && !isInTradingHours()) {
+                    // 过了交易时间，自动关闭屏幕常亮
+                    getWindow().clearFlags(
+                        android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                }
+                tradingHoursCheckHandler.postDelayed(this, TRADING_HOURS_CHECK_INTERVAL);
+            }
+        };
+        tradingHoursCheckHandler.post(tradingHoursCheckTask);
     }
 
     private void checkServerStatus() {
@@ -779,7 +826,12 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         
         // 停止节点配置定时同步
         stopNodeConfigSync();
-        
+
+        // 停止交易时间检查
+        if (tradingHoursCheckHandler != null) {
+            tradingHoursCheckHandler.removeCallbacks(tradingHoursCheckTask);
+        }
+
         // 保存配置到外部存储
         saveConfigToExternalStorage();
         
@@ -982,6 +1034,7 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
         });
     }
 }
+
 
 
 
