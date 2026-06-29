@@ -31,13 +31,12 @@ public class StockService {
     private Handler mainHandler;
 
     public StockService(ConfigManager configManager) {
-        this.configManager = configManager;
-        this.httpClient = new HttpClient();
-        this.debugLogger = DebugLogger.getInstance();
-        this.jsonParser = new JsonParser();
-        this.executorService = Executors.newSingleThreadExecutor();
-        this.mainHandler = new Handler(Looper.getMainLooper());
+        
+
+    private void log(String tag, String msg) {
+        if (debugLogger != null) debugLogger.log(tag, msg);
     }
+        
 
     /**
      * 数据回调接口
@@ -58,9 +57,9 @@ public class StockService {
             public void run() {
                 try {
                     String url = configManager.getRealtimeUrl(code);
-                    debugLogger.log("HTTP", "GET " + url);
+                    log("HTTP", "GET " + url);
                     String response = httpClient.get(url);
-                    debugLogger.log("HTTP", "GET /api/realtime/" + code + " 响应: " + (response.length() > 300 ? response.substring(0, 300) + "..." : response));
+                    log("HTTP", "GET /api/realtime/" + code + " 响应: " + (response.length() > 300 ? response.substring(0, 300) + "..." : response));
                     StockData data = jsonParser.parseRealtime(response);
                     data.setCode(code);
 
@@ -139,7 +138,7 @@ public class StockService {
             public void run() {
                 try {
                     String url = configManager.getHealthUrl();
-                    debugLogger.log("HTTP", "GET " + url + " (health check)");
+                    log("HTTP", "GET " + url + " (health check)");
                     String response = httpClient.get(url);
                     boolean healthy = jsonParser.parseHealth(response);
 
@@ -244,9 +243,9 @@ public class StockService {
             public void run() {
                 try {
                     String url = configManager.getServerAddress() + "/api/config";
-                    debugLogger.log("HTTP", "GET " + url);
+                    log("HTTP", "GET " + url);
                     String response = httpClient.get(url);
-                    debugLogger.log("HTTP", "GET /api/config 响应: " + response);
+                    log("HTTP", "GET /api/config 响应: " + response);
                     org.json.JSONObject root = new org.json.JSONObject(response);
                     int code = root.getInt("code");
                     if (code == 200) {
@@ -288,9 +287,9 @@ public class StockService {
             public void run() {
                 try {
                     String url = configManager.getServerAddress() + "/api/node/config";
-                    debugLogger.log("HTTP", "GET " + url + " (X-Node-ID: " + nodeId + ")");
+                    log("HTTP", "GET " + url + " (X-Node-ID: " + nodeId + ")");
                     String response = httpClient.getWithHeader(url, "X-Node-ID", nodeId);
-                    debugLogger.log("HTTP", "GET /api/node/config 响应: " + response);
+                    log("HTTP", "GET /api/node/config 响应: " + response);
                     org.json.JSONObject root = new org.json.JSONObject(response);
                     int code = root.getInt("code");
                     if (code == 200) {
@@ -331,9 +330,9 @@ public class StockService {
                 try {
                     String url = configManager.getServerAddress() + "/api/node/config";
                     String body = partialConfig.toString();
-                    debugLogger.log("HTTP", "POST " + url + " (X-Node-ID: " + nodeId + ") body: " + body);
+                    log("HTTP", "POST " + url + " (X-Node-ID: " + nodeId + ") body: " + body);
                     String response = httpClient.postWithHeader(url, body, "X-Node-ID", nodeId);
-                    debugLogger.log("HTTP", "POST /api/node/config 响应: " + response);
+                    log("HTTP", "POST /api/node/config 响应: " + response);
                     org.json.JSONObject root = new org.json.JSONObject(response);
                     int code = root.getInt("code");
                     if (code == 200) {
@@ -373,3 +372,4 @@ public class StockService {
         }
     }
 }
+
