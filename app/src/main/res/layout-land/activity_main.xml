@@ -72,6 +72,16 @@
             android:background="@color/colorPrimary"
             android:textColor="@color/surface" />
 
+        <!-- 屏幕常亮开关 -->
+        <CheckBox
+            android:id="@+id/sw_keep_screen_on"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/keep_screen_on"
+            android:textSize="12sp"
+            android:textColor="@color/textSecondary" />
+
         <!-- 股票信息展示区（紧凑布局） -->
         <LinearLayout
             android:id="@+id/stock_info_panel"
