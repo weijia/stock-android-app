@@ -405,54 +405,50 @@ public class SettingsActivity extends Activity {
         configManager.saveServerConfig(ip, port);
         
         // 同时保存到外部存储，并检查结果
-        boolean externalSaved = saveToExternalStorageWithResult(ip, port);
-        
-        if (externalSaved) {
-            Toast.makeText(this, "配置已保存到外部存储", Toast.LENGTH_SHORT).show();
+        ExternalStorageManager.SaveResult result = saveToExternalStorageWithResult(ip, port);
+
+        // 统一显示保存结果
+        if (result.safSuccess) {
+            Toast.makeText(this, "配置已保存到: " + result.safLocation, Toast.LENGTH_LONG).show();
+        } else if (result.externalSuccess) {
+            Toast.makeText(this, "配置已保存到: " + result.externalLocation, Toast.LENGTH_LONG).show();
         } else {
-            Toast.makeText(this, "配置已保存到应用内部（外部存储不可用）", Toast.LENGTH_LONG).show();
+            String errorMsg = "配置已保存到应用内部";
+            if (result.safError != null || result.externalError != null) {
+                errorMsg += "（外部存储失败";
+                if (result.safError != null) {
+                    errorMsg += ", SAF: " + result.safError;
+                }
+                if (result.externalError != null) {
+                    errorMsg += ", 外部存储: " + result.externalError;
+                }
+                errorMsg += "）";
+            }
+            Toast.makeText(this, errorMsg, Toast.LENGTH_LONG).show();
+            android.util.Log.e("SettingsActivity", errorMsg);
         }
 
         // 返回主界面
         finish();
     }
-    
+
     /**
-     * 保存配置到外部存储，返回是否成功
+     * 保存配置到外部存储，返回详细结果
      */
-    private boolean saveToExternalStorageWithResult(String ip, int port) {
+    private ExternalStorageManager.SaveResult saveToExternalStorageWithResult(String ip, int port) {
+        ExternalStorageManager.SaveResult result = new ExternalStorageManager.SaveResult();
         try {
             JSONObject config = new JSONObject();
             config.put("server_ip", ip);
             config.put("server_port", port);
             config.put("last_code", configManager.getLastCode());
-            
-            ExternalStorageManager.SaveResult result = externalStorageManager.saveConfig(config);
-            
-            // 显示详细结果
-            if (result.safSuccess) {
-                Toast.makeText(this, "配置已保存到 SAF 目录", Toast.LENGTH_SHORT).show();
-            } else if (result.externalSuccess) {
-                Toast.makeText(this, "配置已保存到: " + result.externalLocation, Toast.LENGTH_LONG).show();
-            } else {
-                // SAF 和外部存储都失败
-                String errorMsg = "外部存储保存失败";
-                if (result.safError != null) {
-                    errorMsg += " (SAF: " + result.safError + ")";
-                }
-                if (result.externalError != null) {
-                    errorMsg += " (外部存储: " + result.externalError + ")";
-                }
-                Toast.makeText(this, errorMsg, Toast.LENGTH_LONG).show();
-                android.util.Log.e("SettingsActivity", errorMsg);
-            }
-            
-            return result.isExternalStorageSuccess();
+
+            result = externalStorageManager.saveConfig(config);
         } catch (Exception e) {
             android.util.Log.e("SettingsActivity", "保存到外部存储失败: " + e.getMessage());
-            Toast.makeText(this, "保存失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
-            return false;
+            result.externalError = e.getMessage();
         }
+        return result;
     }
 
     private void testConnection() {
@@ -543,8 +539,8 @@ public class SettingsActivity extends Activity {
                 }
             }
             
-            boolean saved = saveToExternalStorageWithResult(ip, port);
-            if (saved) {
+            ExternalStorageManager.SaveResult result = saveToExternalStorageWithResult(ip, port);
+            if (result.safSuccess || result.externalSuccess) {
                 Toast.makeText(this, "已选择外部存储目录，配置已保存", Toast.LENGTH_SHORT).show();
             } else {
                 Toast.makeText(this, "已选择目录，但保存失败，请检查目录权限", Toast.LENGTH_LONG).show();
@@ -560,3 +556,4 @@ public class SettingsActivity extends Activity {
         mdnsDiscovery.shutdown();
     }
 }
+
