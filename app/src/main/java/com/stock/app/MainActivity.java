@@ -293,11 +293,12 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
     }
 
     /**
-     * 更新屏幕常亮状态
-     * 仅在 A 股交易时间内生效（工作日 9:30 - 15:00 北京时间）
+     * 更新屏幕常亮状态。
+     * 规则：勾选时始终常亮；未勾选时仅在北京时间 08:30 - 15:10 期间常亮。
      */
     private void updateKeepScreenOn(boolean keepOn) {
-        if (keepOn && isInTradingHours()) {
+        if (shouldKeepScreenOn(keepOn, java.util.Calendar.getInstance(
+                java.util.TimeZone.getTimeZone("Asia/Shanghai")))) {
             getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         } else {
             getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -305,36 +306,40 @@ public class MainActivity extends Activity implements RefreshScheduler.RefreshCa
     }
 
     /**
-     * 判断是否处于 A 股交易时间（工作日 9:30 - 15:00 北京时间）
+     * 计算当前是否应保持屏幕常亮。
+     * 兼容 Android 4 的做法是继续使用 Window flag，而不依赖更高版本 API。
      */
-    private boolean isInTradingHours() {
-        java.util.Calendar cal = java.util.Calendar.getInstance(
-            java.util.TimeZone.getTimeZone("Asia/Shanghai"));
-        int dayOfWeek = cal.get(java.util.Calendar.DAY_OF_WEEK);
-        // 周六或周日不开盘
+    static boolean shouldKeepScreenOn(boolean keepOn, java.util.Calendar calendar) {
+        if (keepOn) {
+            return true;
+        }
+        if (calendar == null) {
+            calendar = java.util.Calendar.getInstance(
+                java.util.TimeZone.getTimeZone("Asia/Shanghai"));
+        }
+
+        int dayOfWeek = calendar.get(java.util.Calendar.DAY_OF_WEEK);
         if (dayOfWeek == java.util.Calendar.SATURDAY
                 || dayOfWeek == java.util.Calendar.SUNDAY) {
             return false;
         }
-        int hour = cal.get(java.util.Calendar.HOUR_OF_DAY);
-        int minute = cal.get(java.util.Calendar.MINUTE);
-        int time = hour * 100 + minute; // 例如 930 = 9:30, 1500 = 15:00
-        return time >= 930 && time < 1500;
+
+        int hour = calendar.get(java.util.Calendar.HOUR_OF_DAY);
+        int minute = calendar.get(java.util.Calendar.MINUTE);
+        int time = hour * 100 + minute;
+        return time >= 830 && time <= 1510;
     }
 
     /**
-     * 启动交易时间检查定时器
-     * 每分钟检查一次，15:00 后自动关闭屏幕常亮
+     * 启动时间检查定时器，每分钟根据当前规则重新应用屏幕常亮状态。
      */
     private void startTradingHoursCheck() {
         tradingHoursCheckHandler = new android.os.Handler();
         tradingHoursCheckTask = new Runnable() {
             @Override
             public void run() {
-                if (swKeepScreenOn != null && swKeepScreenOn.isChecked() && !isInTradingHours()) {
-                    // 过了交易时间，自动关闭屏幕常亮
-                    getWindow().clearFlags(
-                        android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                if (swKeepScreenOn != null) {
+                    updateKeepScreenOn(swKeepScreenOn.isChecked());
                 }
                 tradingHoursCheckHandler.postDelayed(this, TRADING_HOURS_CHECK_INTERVAL);
             }

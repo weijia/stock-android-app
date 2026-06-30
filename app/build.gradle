@@ -46,4 +46,5 @@ if (System.getenv("KEYSTORE_PATH") != null && System.getenv("KEYSTORE_PASSWORD")
 
 dependencies {
     // 无第三方依赖，仅使用 Android SDK 原生 API
+    testImplementation 'junit:junit:4.13.2'
 }
