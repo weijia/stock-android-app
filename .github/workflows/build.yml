@@ -45,11 +45,8 @@ jobs:
         # 生成新的 versionName：原始版本 + build 号
         NEW_VERSION_NAME="${BASE_VERSION}.${BUILD_NUMBER}"
         
-        # 更新 versionCode（使用 run_number 保证递增）
-        sed -i "s/versionCode [0-9][0-9]*/versionCode ${BUILD_NUMBER}/" app/build.gradle
-
-        # 更新 versionName（用单引号隔离 "，避免 bash 转义问题）
-        sed -i 's/versionName "[^"]*"/versionName "'"${NEW_VERSION_NAME}"'"/' app/build.gradle
+        # 使用 Python 更新版本号（\x22 = "，彻底避免引号和转义问题）
+        python3 -c "import re;c=open('app/build.gradle').read();c=re.sub('versionCode\s+\d+','versionCode ${BUILD_NUMBER}',c);c=re.sub('versionName\s+\x22[^\x22]+\x22','versionName \x22${NEW_VERSION_NAME}\x22',c);open('app/build.gradle','w').write(c)"
         
         # 显示更新后的版本信息
         echo "=== Updated version info ==="
