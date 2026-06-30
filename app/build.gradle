@@ -9,6 +9,8 @@ android {
         applicationId "com.stock.app"
         minSdk 14
         targetSdk 33
+        // 版本号由 GitHub Actions 自动管理，请勿手动修改
+        // CI 构建时 versionCode 会替换为 github.run_number，versionName 会追加 build 号
         versionCode 166
         versionName "1.0.0"
     }
