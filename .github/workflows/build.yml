@@ -38,8 +38,8 @@ jobs:
     - name: Update version before build
       id: version
       run: |
-        # 读取原始 versionName
-        BASE_VERSION=$(grep "versionName" app/build.gradle | head -1 | sed 's/.*versionName *"\([^"]*\)".*/\1/')
+        # 读取原始 versionName（排除注释行，避免匹配到包含 versionName 文字的注释）
+        BASE_VERSION=$(grep 'versionName\s\+"' app/build.gradle | head -1 | sed 's/.*versionName *"\([^"]*\)".*/\1/')
         BUILD_NUMBER=${{ github.run_number }}
         
         # 生成新的 versionName：原始版本 + build 号
