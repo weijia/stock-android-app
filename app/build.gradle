@@ -11,8 +11,8 @@ android {
         targetSdk 33
         // 版本号由 GitHub Actions 自动管理，请勿手动修改
         // CI 构建时 versionCode -> github.run_number，版本名 -> 追加 build 号
-        versionCode 171
-        versionName "1.0.0.171"
+        versionCode 172
+        versionName "1.0.0.171.172"
     }
 
     buildTypes {
