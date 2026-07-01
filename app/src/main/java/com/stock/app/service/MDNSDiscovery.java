@@ -7,6 +7,8 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
+import com.stock.app.util.DebugLogger;
+
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.List;
@@ -108,6 +110,14 @@ public class MDNSDiscovery {
      */
     private void logDebug(String message) {
         Log.d(TAG, message);
+        
+        // 同时输出到 DebugLogger
+        DebugLogger logger = DebugLogger.getInstance();
+        if (logger != null) {
+            logger.log(TAG, message);
+        }
+        
+        // 兼容旧的回调方式
         if (debugLogCallback != null) {
             mainHandler.post(new Runnable() {
                 @Override

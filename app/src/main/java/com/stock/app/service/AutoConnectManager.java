@@ -6,6 +6,7 @@ import android.os.Looper;
 import android.util.Log;
 
 import com.stock.app.util.ConfigManager;
+import com.stock.app.util.DebugLogger;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -71,6 +72,11 @@ public class AutoConnectManager {
      * 开始自动连接流程
      */
     public void startAutoConnect() {
+        DebugLogger logger = DebugLogger.getInstance();
+        if (logger != null) {
+            logger.log(TAG, "开始自动连接流程");
+        }
+        
         executorService.execute(new Runnable() {
             @Override
             public void run() {
@@ -78,17 +84,27 @@ public class AutoConnectManager {
                 String lastServerIp = configManager.getServerIp();
                 int lastServerPort = configManager.getServerPort();
                 
-                updateProgress("尝试连接上次服务器: " + lastServerIp + ":" + lastServerPort);
-                Log.d(TAG, "尝试连接上次服务器: " + lastServerIp + ":" + lastServerPort);
+                String msg = "尝试连接上次服务器: " + lastServerIp + ":" + lastServerPort;
+                updateProgress(msg);
+                Log.d(TAG, msg);
+                if (logger != null) {
+                    logger.log(TAG, msg);
+                }
                 
                 if (tryConnectServer(lastServerIp, lastServerPort)) {
                     Log.d(TAG, "上次服务器连接成功");
+                    if (logger != null) {
+                        logger.log(TAG, "上次服务器连接成功");
+                    }
                     updateProgress("已连接到服务器: " + lastServerIp);
                     notifyConnected(lastServerIp, lastServerPort);
                     return;
                 }
                 
                 Log.d(TAG, "上次服务器连接失败，开始搜索新服务器");
+                if (logger != null) {
+                    logger.log(TAG, "上次服务器连接失败，开始搜索新服务器");
+                }
                 updateProgress("上次服务器不可用，正在搜索新服务器...");
                 
                 // 步骤2: 搜索新服务器
@@ -157,24 +173,47 @@ public class AutoConnectManager {
      * 搜索新服务器
      */
     private void searchNewServers() {
+        DebugLogger logger = DebugLogger.getInstance();
+        if (logger != null) {
+            logger.log(TAG, "开始 mDNS 服务器发现，超时: " + DISCOVERY_TIMEOUT + "ms");
+        }
+        
         mdnsDiscovery.startDiscovery(DISCOVERY_TIMEOUT, new MDNSDiscovery.DiscoveryCallback() {
             @Override
             public void onServerFound(MDNSDiscovery.DiscoveredServer server) {
-                Log.d(TAG, "发现服务器: " + server.getHost() + ":" + server.getPort());
+                String msg = "发现服务器: " + server.getHost() + ":" + server.getPort();
+                Log.d(TAG, msg);
+                if (logger != null) {
+                    logger.log(TAG, msg);
+                }
                 updateProgress("发现服务器: " + server.getHost());
             }
             
             @Override
             public void onDiscoveryComplete(List<MDNSDiscovery.DiscoveredServer> servers) {
-                Log.d(TAG, "搜索完成，发现 " + servers.size() + " 台服务器");
+                String msg = "搜索完成，发现 " + servers.size() + " 台服务器";
+                Log.d(TAG, msg);
+                if (logger != null) {
+                    logger.log(TAG, msg);
+                    for (MDNSDiscovery.DiscoveredServer s : servers) {
+                        logger.log(TAG, "  - " + s.getHost() + ":" + s.getPort());
+                    }
+                }
                 
                 if (servers.isEmpty()) {
                     updateProgress("未找到服务器");
+                    if (logger != null) {
+                        logger.error(TAG, "未找到可用的服务器");
+                    }
                     notifyConnectionFailed("未找到可用的服务器");
                 } else if (servers.size() == 1) {
                     // 只有一台服务器，自动连接
                     MDNSDiscovery.DiscoveredServer server = servers.get(0);
-                    updateProgress("自动连接到: " + server.getHost());
+                    String connectMsg = "自动连接到: " + server.getHost() + ":" + server.getPort();
+                    updateProgress(connectMsg);
+                    if (logger != null) {
+                        logger.log(TAG, connectMsg);
+                    }
                     
                     configManager.setServerIp(server.getHost());
                     configManager.setServerPort(server.getPort());
@@ -183,6 +222,9 @@ public class AutoConnectManager {
                 } else {
                     // 多台服务器，需要用户选择
                     updateProgress("发现多台服务器，请选择");
+                    if (logger != null) {
+                        logger.log(TAG, "发现多台服务器，需要用户选择");
+                    }
                     notifyNeedSelectServer(servers);
                 }
             }
@@ -190,6 +232,9 @@ public class AutoConnectManager {
             @Override
             public void onError(String error) {
                 Log.e(TAG, "搜索服务器失败: " + error);
+                if (logger != null) {
+                    logger.error(TAG, "搜索服务器失败: " + error);
+                }
                 notifyConnectionFailed("搜索服务器失败: " + error);
             }
         });
