@@ -272,13 +272,13 @@ public class AutoConnectManager {
         udpDiscovery.startDiscovery(DISCOVERY_TIMEOUT, new ServerDiscovery.DiscoveryCallback() {
             @Override
             public void onServerFound(ServerDiscovery.DiscoveredServer server) {
-                String msg = "[UDP] 发现服务器: " + server.getHost() + ":" + server.getPort();
+                String msg = "[UDP] 发现服务器: " + server.getAddress() + ":" + server.getHttpPort();
                 Log.d(TAG, msg);
                 DebugLogger dbg = DebugLogger.getInstance();
                 if (dbg != null) {
                     dbg.log(TAG, msg);
                 }
-                updateProgress("发现服务器: " + server.getHost());
+                updateProgress("发现服务器: " + server.getAddress());
             }
             
             @Override
@@ -289,7 +289,7 @@ public class AutoConnectManager {
                 if (dbg != null) {
                     dbg.log(TAG, msg);
                     for (ServerDiscovery.DiscoveredServer s : servers) {
-                        dbg.log(TAG, "  - " + s.getHost() + ":" + s.getPort());
+                        dbg.log(TAG, "  - " + s.getAddress() + ":" + s.getHttpPort());
                     }
                 }
                 
