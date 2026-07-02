@@ -39,10 +39,15 @@ jobs:
       id: version
       run: |
         # 读取原始 versionName（排除注释行，避免匹配到包含 versionName 文字的注释）
-        BASE_VERSION=$(grep 'versionName\s\+"' app/build.gradle | head -1 | sed 's/.*versionName *"\([^"]*\)".*/\1/')
+        RAW_VERSION=$(grep 'versionName\s\+"' app/build.gradle | head -1 | sed 's/.*versionName *"\([^"]*\)".*/\1/')
+        
+        # 只取前3段版本号（避免上次构建追加的 build 号被累加）
+        # 例如 "1.0.0.171.172" -> "1.0.0"
+        BASE_VERSION=$(echo "$RAW_VERSION" | awk -F. '{print $1"."$2"."$3}')
+        
         BUILD_NUMBER=${{ github.run_number }}
         
-        # 生成新的 versionName：原始版本 + build 号
+        # 生成新的 versionName：原始3段版本 + build 号
         NEW_VERSION_NAME="${BASE_VERSION}.${BUILD_NUMBER}"
         
         # 使用 Python 更新版本号（\x22 = "，彻底避免引号和转义问题）
