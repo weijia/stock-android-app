@@ -3,6 +3,8 @@ package com.stock.app.service;
 import android.content.Context;
 import android.net.nsd.NsdManager;
 import android.net.nsd.NsdServiceInfo;
+import android.net.wifi.WifiManager;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -40,6 +42,9 @@ public class MDNSDiscovery {
     
     // 调试日志回调
     private DebugLogCallback debugLogCallback;
+    
+    // MulticastLock（确保 mDNS 多播包能被接收）
+    private WifiManager.MulticastLock multicastLock;
     
     // 是否正在发现
     private boolean discovering = false;
@@ -89,12 +94,32 @@ public class MDNSDiscovery {
         this.mainHandler = new Handler(Looper.getMainLooper());
         this.executorService = Executors.newSingleThreadExecutor();
         
-        // 获取 NSD Manager
-        nsdManager = (NsdManager) context.getSystemService(Context.NSD_SERVICE);
-        if (nsdManager != null) {
-            logDebug("[mDNS] NSD Manager 已获取");
+        // 获取 MulticastLock（关键！没有它 mDNS 多播包可能被 Wi-Fi 省电策略过滤）
+        try {
+            WifiManager wifiManager = (WifiManager) context.getApplicationContext()
+                    .getSystemService(Context.WIFI_SERVICE);
+            if (wifiManager != null) {
+                multicastLock = wifiManager.createMulticastLock("stock-mdns-discovery");
+                multicastLock.setReferenceCounted(true);
+                logDebug("[mDNS] MulticastLock 已创建");
+            } else {
+                logDebug("[mDNS] 警告: WifiManager 不可用，无法创建 MulticastLock");
+            }
+        } catch (Exception e) {
+            logDebug("[mDNS] 警告: 创建 MulticastLock 失败: " + e.getMessage());
+        }
+        
+        // 获取 NSD Manager（API 16+ 才可用）
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+            nsdManager = (NsdManager) context.getSystemService(Context.NSD_SERVICE);
+            if (nsdManager != null) {
+                logDebug("[mDNS] NSD Manager 已获取 (API " + Build.VERSION.SDK_INT + ")");
+            } else {
+                logDebug("[mDNS] 错误: NSD Manager 不可用");
+            }
         } else {
-            logDebug("[mDNS] 错误: NSD Manager 不可用");
+            logDebug("[mDNS] 错误: 当前设备 API " + Build.VERSION.SDK_INT + "，mDNS 需要 API 16+");
+            nsdManager = null;
         }
     }
     
@@ -137,11 +162,18 @@ public class MDNSDiscovery {
         logDebug("[mDNS] 开始启动...");
         logDebug("[mDNS] 服务类型: " + SERVICE_TYPE);
         logDebug("[mDNS] 超时时间: " + timeout + " ms");
+        logDebug("[mDNS] 设备 API: " + Build.VERSION.SDK_INT);
         
         if (nsdManager == null) {
-            logDebug("[mDNS] 错误: NSD Manager 不可用");
-            callback.onError("NSD Manager 不可用");
+            logDebug("[mDNS] 错误: NSD Manager 不可用 (当前 API " + Build.VERSION.SDK_INT + ", 需要 16+)");
+            callback.onError("NSD Manager 不可用，当前设备 API " + Build.VERSION.SDK_INT + "，需要 Android 4.1+。请在设置中手动输入服务器地址。");
             return;
+        }
+        
+        // 获取 MulticastLock
+        if (multicastLock != null && !multicastLock.isHeld()) {
+            multicastLock.acquire();
+            logDebug("[mDNS] MulticastLock 已获取");
         }
         
         discoveredServers.clear();
@@ -308,6 +340,16 @@ public class MDNSDiscovery {
             }
         }
         discovering = false;
+        
+        // 释放 MulticastLock
+        if (multicastLock != null && multicastLock.isHeld()) {
+            try {
+                multicastLock.release();
+                logDebug("[mDNS] MulticastLock 已释放");
+            } catch (Exception e) {
+                logDebug("[mDNS] 释放 MulticastLock 异常: " + e.getMessage());
+            }
+        }
     }
     
     /**

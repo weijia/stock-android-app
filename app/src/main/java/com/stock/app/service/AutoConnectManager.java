@@ -1,6 +1,7 @@
 package com.stock.app.service;
 
 import android.content.Context;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -32,6 +33,7 @@ public class AutoConnectManager {
     private ConfigManager configManager;
     private StockService stockService;
     private MDNSDiscovery mdnsDiscovery;
+    private ServerDiscovery udpDiscovery;
     private ExecutorService executorService;
     private Handler mainHandler;
     
@@ -57,6 +59,7 @@ public class AutoConnectManager {
         this.configManager = configManager;
         this.stockService = stockService;
         this.mdnsDiscovery = new MDNSDiscovery(context);
+        this.udpDiscovery = new ServerDiscovery(context);
         this.executorService = Executors.newSingleThreadExecutor();
         this.mainHandler = new Handler(Looper.getMainLooper());
     }
@@ -171,8 +174,31 @@ public class AutoConnectManager {
     
     /**
      * 搜索新服务器
+     * 降级策略：mDNS → UDP 广播 → 提示手动输入
      */
     private void searchNewServers() {
+        DebugLogger logger = DebugLogger.getInstance();
+        
+        // 检查 API 版本，低版本直接跳过 mDNS
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+            // API 16+: 先尝试 mDNS
+            if (logger != null) {
+                logger.log(TAG, "开始 mDNS 服务器发现 (API " + Build.VERSION.SDK_INT + " >= 16)");
+            }
+            searchViaMDNS();
+        } else {
+            // API 15 及以下: mDNS 不可用，直接使用 UDP
+            if (logger != null) {
+                logger.log(TAG, "API " + Build.VERSION.SDK_INT + " < 16，跳过 mDNS，直接使用 UDP 发现");
+            }
+            searchViaUDP();
+        }
+    }
+    
+    /**
+     * 通过 mDNS 搜索服务器
+     */
+    private void searchViaMDNS() {
         DebugLogger logger = DebugLogger.getInstance();
         if (logger != null) {
             logger.log(TAG, "开始 mDNS 服务器发现，超时: " + DISCOVERY_TIMEOUT + "ms");
@@ -181,7 +207,7 @@ public class AutoConnectManager {
         mdnsDiscovery.startDiscovery(DISCOVERY_TIMEOUT, new MDNSDiscovery.DiscoveryCallback() {
             @Override
             public void onServerFound(MDNSDiscovery.DiscoveredServer server) {
-                String msg = "发现服务器: " + server.getHost() + ":" + server.getPort();
+                String msg = "[mDNS] 发现服务器: " + server.getHost() + ":" + server.getPort();
                 Log.d(TAG, msg);
                 if (logger != null) {
                     logger.log(TAG, msg);
@@ -191,7 +217,7 @@ public class AutoConnectManager {
             
             @Override
             public void onDiscoveryComplete(List<MDNSDiscovery.DiscoveredServer> servers) {
-                String msg = "搜索完成，发现 " + servers.size() + " 台服务器";
+                String msg = "[mDNS] 搜索完成，发现 " + servers.size() + " 台服务器";
                 Log.d(TAG, msg);
                 if (logger != null) {
                     logger.log(TAG, msg);
@@ -200,44 +226,134 @@ public class AutoConnectManager {
                     }
                 }
                 
-                if (servers.isEmpty()) {
-                    updateProgress("未找到服务器");
-                    if (logger != null) {
-                        logger.error(TAG, "未找到可用的服务器");
-                    }
-                    notifyConnectionFailed("未找到可用的服务器");
-                } else if (servers.size() == 1) {
-                    // 只有一台服务器，自动连接
-                    MDNSDiscovery.DiscoveredServer server = servers.get(0);
-                    String connectMsg = "自动连接到: " + server.getHost() + ":" + server.getPort();
-                    updateProgress(connectMsg);
-                    if (logger != null) {
-                        logger.log(TAG, connectMsg);
-                    }
-                    
-                    configManager.setServerIp(server.getHost());
-                    configManager.setServerPort(server.getPort());
-                    
-                    notifyConnected(server.getHost(), server.getPort());
+                if (!servers.isEmpty()) {
+                    handleDiscoveredServers(servers);
                 } else {
-                    // 多台服务器，需要用户选择
-                    updateProgress("发现多台服务器，请选择");
+                    // mDNS 未发现，降级到 UDP
                     if (logger != null) {
-                        logger.log(TAG, "发现多台服务器，需要用户选择");
+                        logger.log(TAG, "mDNS 未发现服务器，降级到 UDP 广播发现");
                     }
-                    notifyNeedSelectServer(servers);
+                    searchViaUDP();
                 }
             }
             
             @Override
             public void onError(String error) {
-                Log.e(TAG, "搜索服务器失败: " + error);
+                Log.e(TAG, "[mDNS] 搜索服务器失败: " + error);
                 if (logger != null) {
-                    logger.error(TAG, "搜索服务器失败: " + error);
+                    logger.error(TAG, "mDNS 失败: " + error + "，降级到 UDP 广播发现");
                 }
-                notifyConnectionFailed("搜索服务器失败: " + error);
+                // mDNS 失败，降级到 UDP
+                searchViaUDP();
             }
         });
+    }
+    
+    /**
+     * 通过 UDP 广播搜索服务器（降级方案）
+     */
+    private void searchViaUDP() {
+        DebugLogger logger = DebugLogger.getInstance();
+        if (logger != null) {
+            logger.log(TAG, "开始 UDP 广播服务器发现，超时: " + DISCOVERY_TIMEOUT + "ms");
+        }
+        updateProgress("正在通过 UDP 搜索服务器...");
+        
+        udpDiscovery.setDebugLogCallback(new ServerDiscovery.DebugLogCallback() {
+            @Override
+            public void onDebugLog(String log) {
+                DebugLogger dbg = DebugLogger.getInstance();
+                if (dbg != null) {
+                    dbg.log(TAG, "[UDP] " + log);
+                }
+            }
+        });
+        
+        udpDiscovery.startDiscovery(DISCOVERY_TIMEOUT, new ServerDiscovery.DiscoveryCallback() {
+            @Override
+            public void onServerFound(ServerDiscovery.DiscoveredServer server) {
+                String msg = "[UDP] 发现服务器: " + server.getHost() + ":" + server.getPort();
+                Log.d(TAG, msg);
+                DebugLogger dbg = DebugLogger.getInstance();
+                if (dbg != null) {
+                    dbg.log(TAG, msg);
+                }
+                updateProgress("发现服务器: " + server.getHost());
+            }
+            
+            @Override
+            public void onDiscoveryComplete(List<ServerDiscovery.DiscoveredServer> servers) {
+                String msg = "[UDP] 搜索完成，发现 " + servers.size() + " 台服务器";
+                Log.d(TAG, msg);
+                DebugLogger dbg = DebugLogger.getInstance();
+                if (dbg != null) {
+                    dbg.log(TAG, msg);
+                    for (ServerDiscovery.DiscoveredServer s : servers) {
+                        dbg.log(TAG, "  - " + s.getHost() + ":" + s.getPort());
+                    }
+                }
+                
+                if (!servers.isEmpty()) {
+                    for (ServerDiscovery.DiscoveredServer s : servers) {
+                        String host = s.getAddress();
+                        int port = s.getHttpPort();
+                        if (host != null && port > 0) {
+                            configManager.setServerIp(host);
+                            configManager.setServerPort(port);
+                            String connectMsg = "通过 UDP 发现并连接到: " + host + ":" + port;
+                            updateProgress(connectMsg);
+                            if (dbg != null) {
+                                dbg.log(TAG, connectMsg);
+                            }
+                            notifyConnected(host, port);
+                            return;
+                        }
+                    }
+                    notifyConnectionFailed("UDP 发现的服务器地址无效");
+                } else {
+                    // 所有发现方式都失败
+                    if (dbg != null) {
+                        dbg.error(TAG, "mDNS 和 UDP 均未发现服务器，请在设置中手动输入服务器地址");
+                    }
+                    notifyConnectionFailed("未找到服务器（mDNS 和 UDP 均失败）。请在设置中手动输入服务器 IP 地址和端口。");
+                }
+            }
+        });
+    }
+    
+    /**
+     * 处理 mDNS 发现的服务器列表
+     */
+    private void handleDiscoveredServers(List<MDNSDiscovery.DiscoveredServer> servers) {
+        DebugLogger logger = DebugLogger.getInstance();
+        
+        if (servers.isEmpty()) {
+            updateProgress("未找到服务器");
+            if (logger != null) {
+                logger.error(TAG, "未找到可用的服务器");
+            }
+            notifyConnectionFailed("未找到可用的服务器");
+        } else if (servers.size() == 1) {
+            // 只有一台服务器，自动连接
+            MDNSDiscovery.DiscoveredServer server = servers.get(0);
+            String connectMsg = "自动连接到: " + server.getHost() + ":" + server.getPort();
+            updateProgress(connectMsg);
+            if (logger != null) {
+                logger.log(TAG, connectMsg);
+            }
+            
+            configManager.setServerIp(server.getHost());
+            configManager.setServerPort(server.getPort());
+            
+            notifyConnected(server.getHost(), server.getPort());
+        } else {
+            // 多台服务器，需要用户选择
+            updateProgress("发现多台服务器，请选择");
+            if (logger != null) {
+                logger.log(TAG, "发现多台服务器，需要用户选择");
+            }
+            notifyNeedSelectServer(servers);
+        }
     }
     
     /**
@@ -322,6 +438,9 @@ public class AutoConnectManager {
     public void shutdown() {
         if (mdnsDiscovery != null) {
             mdnsDiscovery.shutdown();
+        }
+        if (udpDiscovery != null) {
+            udpDiscovery.shutdown();
         }
         if (executorService != null) {
             executorService.shutdown();
